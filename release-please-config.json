@@ -71,7 +71,7 @@
         },
         {
           "type": "json",
-          "path": "apps/invoicing/package.json",
+          "path": "apps/invoice/package.json",
           "jsonpath": "$.version"
         },
         {

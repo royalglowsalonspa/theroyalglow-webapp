@@ -101,6 +101,9 @@ export async function removeSeed(): Promise<void> {
     db.execute(
       sql`delete from invoice_item where invoice_id in (select id from invoice where customer_id = ${customerId})`,
     ),
+    db.execute(
+      sql`delete from invoice_issue_outbox where invoice_id in (select id from invoice where customer_id = ${customerId})`,
+    ),
     db.execute(sql`delete from invoice where customer_id = ${customerId}`),
     db.execute(sql`delete from booking_service where booking_id in ${bookings}`),
     db.execute(sql`delete from booking_status_log where booking_id in ${bookings}`),

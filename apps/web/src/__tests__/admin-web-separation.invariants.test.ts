@@ -297,8 +297,8 @@ const TRIGGERED_JOB_NAMES = [
   'stale-booking-alert',
 ] as const
 
-// The 26 canonical job routes = 21 scheduled + 5 triggered.
-const ALL_CANONICAL_JOB_ROUTES = [...SCHEDULED_JOB_KEYS, ...TRIGGERED_JOB_NAMES]
+const OPT_IN_JOB_KEYS = ['invoice-outbox', 'invoice-staff-roster'] as const
+const ALL_CANONICAL_JOB_ROUTES = [...SCHEDULED_JOB_KEYS, ...OPT_IN_JOB_KEYS, ...TRIGGERED_JOB_NAMES]
 
 describe('admin-web-separation: no references to moved/deleted job libs in apps/web (Req 2.1, 2.3) [Expected Behavior]', () => {
   // Import/module markers for the moved (schedules, reports/slack) or deleted
@@ -373,14 +373,14 @@ describe('admin-web-separation: kept customer libs + split routes remain in apps
   })
 })
 
-describe('admin-web-separation: the canonical 26 job routes live in apps/admin (Req 2.1, 2.2, 2.4, 3.6) [admin presence]', () => {
+describe('admin-web-separation: the canonical job routes live in apps/admin (Req 2.1, 2.2, 2.4, 3.6) [admin presence]', () => {
   for (const name of ALL_CANONICAL_JOB_ROUTES) {
     it(`"${name}" route exists under apps/admin/src/app/api/jobs`, () => {
       expect(existsSync(join(ADMIN_JOBS_DIR, name, 'route.ts'))).toBe(true)
     })
   }
 
-  it('admin hosts exactly the 26 canonical job route directories (no extras, no duplicates)', () => {
+  it('admin hosts exactly the canonical job route directories (no extras, no duplicates)', () => {
     const dirs = readdirSync(ADMIN_JOBS_DIR, { withFileTypes: true })
       .filter((e) => e.isDirectory())
       .map((e) => e.name)
@@ -395,17 +395,25 @@ describe('admin-web-separation: register-schedules + JOB_SCHEDULES resolve in ad
     expect(existsSync(ADMIN_SCHEDULES)).toBe(true)
   })
 
-  it('JOB_SCHEDULES resolves in admin and declares all 21 scheduled jobs at /api/jobs/*', async () => {
+  it('JOB_SCHEDULES declares the default and opt-in jobs at /api/jobs/*', async () => {
     // Dynamic import by absolute file URL — schedules.ts has zero imports and
     // no side effects, so it loads cleanly from the web test project.
     const mod = (await import(pathToFileURL(ADMIN_SCHEDULES).href)) as {
-      JOB_SCHEDULES: ReadonlyArray<{ key: string; path: string; cron: string }>
+      JOB_SCHEDULES: ReadonlyArray<{ key: string; path: string; cron: string; optIn?: boolean }>
     }
     const schedules = mod.JOB_SCHEDULES
-    expect(schedules).toHaveLength(21)
-
-    // Keys match the 21 expected scheduled jobs exactly.
-    expect(schedules.map((s) => s.key).sort()).toEqual([...SCHEDULED_JOB_KEYS].sort())
+    expect(
+      schedules
+        .filter((s) => !s.optIn)
+        .map((s) => s.key)
+        .sort(),
+    ).toEqual([...SCHEDULED_JOB_KEYS].sort())
+    expect(
+      schedules
+        .filter((s) => s.optIn)
+        .map((s) => s.key)
+        .sort(),
+    ).toEqual([...OPT_IN_JOB_KEYS])
 
     // Every schedule POSTs to a canonical /api/jobs/<key> path with a cron.
     for (const s of schedules) {

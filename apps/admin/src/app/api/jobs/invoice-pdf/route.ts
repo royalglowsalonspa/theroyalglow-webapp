@@ -41,6 +41,7 @@
 
 import {
   buildInvoiceEmailHtml,
+  formatSplitPayment,
   invoiceFileStem,
   invoicePdfObjectKey,
   sharedRatePercentLabel,
@@ -227,6 +228,7 @@ async function sendInvoiceEmail(
   loaded: LoadedInvoice,
   attachments?: { filename: string; content: string }[],
 ): Promise<boolean> {
+  if (loaded.workerOwnsEmail) return false
   const { invoice: inv, items, customer, bookingNumber } = loaded
 
   if (!customer.email) {
@@ -257,7 +259,9 @@ async function sendInvoiceEmail(
     ratePercentLabel: sharedRatePercentLabel(items.map((item) => item.rateBps)),
     totalPaise: inv.totalAmountPaise,
     gemsEarned: inv.gemsEarned,
-    paymentMethod: inv.paymentMethod,
+    paymentMethod: loaded.paymentTenders
+      ? formatSplitPayment(loaded.paymentTenders)
+      : inv.paymentMethod,
     issuedAt: inv.taxPointAt ?? inv.createdAt,
     issuerName: seller.name,
     issuerGstin: seller.gstin ?? null,

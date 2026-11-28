@@ -168,6 +168,9 @@ describe.skipIf(!LIVE)('memberships across branches against a live database', ()
       db.execute(
         sql`delete from invoice_item where invoice_id in (select id from invoice where customer_id like ${like})`,
       ),
+      db.execute(
+        sql`delete from invoice_issue_outbox where invoice_id in (select id from invoice where customer_id like ${like})`,
+      ),
       db.execute(sql`delete from invoice where customer_id like ${like}`),
       // Membership holds go only under the fixture flag too (0026).
       db.execute(

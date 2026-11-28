@@ -164,12 +164,12 @@ async function issue(
   params: Parameters<typeof issueOf>[0],
   ...extra: BatchItem<'pg'>[]
 ): Promise<unknown[]> {
-  const { counter, insertInvoice, insertLines } = await issueOf(params)
+  const { counter, insertInvoice, insertLines, insertSnapshot } = await issueOf(params)
   const statements: BatchItem<'pg'>[] = [counter, insertInvoice]
   if (insertLines) {
     statements.push(insertLines)
   }
-  statements.push(...extra)
+  statements.push(insertSnapshot, ...extra)
   return db.batch(statements as [BatchItem<'pg'>, ...BatchItem<'pg'>[]])
 }
 
@@ -213,6 +213,9 @@ describe.skipIf(!LIVE)('issuing invoices against a live database', () => {
     await db.batch([
       db.execute(
         sql`delete from invoice_item where invoice_id in (select id from invoice where branch_id like ${like})`,
+      ),
+      db.execute(
+        sql`delete from invoice_issue_outbox where invoice_id in (select id from invoice where branch_id like ${like})`,
       ),
       db.execute(sql`delete from invoice where branch_id like ${like}`),
       db.execute(

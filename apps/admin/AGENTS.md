@@ -79,7 +79,7 @@ For the contributor overview, configuration, and route map, read [README.md](REA
   expressions are UTC. Registration requires a reachable admin origin and keeps
   matching active schedules. Preview with `--dry` and use `--jobs` for a scoped
   apply. Paused or duplicate schedules require explicit resolution.
-- Invoice orchestration calls `apps/invoicing` for PDF rendering. Preserve its
+- Invoice orchestration calls `apps/invoice` for PDF rendering. Preserve its
   signed request contract and documented no-attachment fallback.
 - `service-drift-reconcile` detects and reports CMS/public divergence; it does not
   repair catalogue data. Do not turn a monitoring job into an implicit migration.

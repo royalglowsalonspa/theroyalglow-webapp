@@ -410,7 +410,7 @@ export function inspectRenovatePolicy(
     const activeDocker = {
       name: 'node',
       kind: 'final',
-      file: 'apps/invoicing/Dockerfile',
+      file: 'apps/invoice/Dockerfile',
       manager: 'dockerfile',
     }
     const action = {

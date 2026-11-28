@@ -27,4 +27,6 @@
 export * from './amount-in-words'
 export * from './email'
 export * from './invoice-number'
+export * from './payment-display'
+export * from './pdf'
 export * from './tax'

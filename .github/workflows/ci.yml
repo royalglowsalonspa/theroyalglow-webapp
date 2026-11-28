@@ -55,7 +55,7 @@ jobs:
               # paths trigger in docs-lighthouse.yml.
               - '.github/lighthouse/lighthouserc.json'
             invoicing:
-              - 'apps/invoicing/**'
+              - 'apps/invoice/**'
               - 'packages/**'
               - 'package.json'
               - 'tsconfig.json'
@@ -140,12 +140,8 @@ jobs:
           retention-days: 1
 
   # ---------------------------------------------------------------------------
-  # Invoicing service CI: lint + typecheck + build scoped via turbo filter.
-  # The standalone @rgss/invoicing (Hono + @react-pdf/renderer) Cloud Run
-  # service. `build` runs tsup, which bundles the workspace @rgss/* deps inline
-  # — so this job catches bundling regressions before a manual `gcloud run
-  # deploy`. The repo-wide unit-tests job also runs the invoicing HTTP and
-  # renderer tests with a stubbed storage transport.
+  # Invoice CI covers the Cloudflare Worker and signed Node renderer.
+  # Runtime checks use synthetic data and do not deploy.
   # ---------------------------------------------------------------------------
   invoicing-ci:
     runs-on: ubuntu-latest
@@ -154,12 +150,44 @@ jobs:
     if: needs.changes.outputs.invoicing == 'true'
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
+      - name: Check invoice staging and production configuration isolation
+        run: bun run --filter @rgss/invoice test:staging-config
+      - name: Check invoice staging smoke isolation
+        run: bun run --filter @rgss/invoice test:staging-smoke
+      - name: Check statement parsing and GSTIN draft totals
+        run: bun test apps/invoice/test/statement-csv.test.ts apps/invoice/test/gstin-close.test.ts
       - name: Lint, typecheck, build (invoicing)
-        run: bunx turbo run lint typecheck build --filter=@rgss/invoicing
+        run: bunx turbo run lint typecheck build --filter=@rgss/invoice
         env:
           SKIP_ENV_VALIDATION: '1'
+      - name: Exercise the Worker with local Cloudflare bindings
+        run: bun run --filter @rgss/invoice test:runtime
+      - name: Start the invoicing image with fixture credentials
+        run: |
+          docker build --file apps/invoice/Dockerfile --tag rgss-invoicing:ci .
+          container=$(docker run --detach --network none \
+            -e INVOICE_PDF_HMAC_SECRET=fixture \
+            -e R2_BUCKET_NAME=fixture \
+            -e R2_ENDPOINT=https://r2.example.invalid \
+            -e R2_ACCESS_KEY_ID=fixture \
+            -e R2_SECRET_ACCESS_KEY=fixture \
+            -e R2_PUBLIC_BASE_URL=https://media.example.invalid \
+            rgss-invoicing:ci)
+          trap 'docker rm -f "$container" >/dev/null' EXIT
+          for attempt in {1..20}; do
+            if docker exec "$container" node --input-type=module -e \
+              'const response = await fetch("http://127.0.0.1:8080/healthz"); if (!response.ok || (await response.json()).status !== "ok") process.exit(1)' 2>/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs "$container"
+          exit 1
 
   # ---------------------------------------------------------------------------
   # Payload upgrades also need a production compile; unit tests cannot exercise

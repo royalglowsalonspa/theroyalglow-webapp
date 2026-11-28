@@ -47,7 +47,7 @@ function fixture() {
       groupName: 'payload',
     },
     { matchManagers: ['dockerfile'], enabled: false },
-    { matchManagers: ['dockerfile'], matchFileNames: ['apps/invoicing/Dockerfile'], enabled: true },
+    { matchManagers: ['dockerfile'], matchFileNames: ['apps/invoice/Dockerfile'], enabled: true },
   ]
   const config = {
     enabledManagers: ['bun', 'github-actions', 'dockerfile'],
@@ -137,9 +137,9 @@ describe('native Bun release-age policy', () => {
       )
       expect(
         inspectBunReleaseAgePolicy(protectedConfig, [
-          { file: 'apps/invoicing/bunfig.toml', config },
+          { file: 'apps/invoice/bunfig.toml', config },
         ]).join('\n'),
-      ).toContain('apps/invoicing/bunfig.toml: persistent minimumReleaseAgeExcludes')
+      ).toContain('apps/invoice/bunfig.toml: persistent minimumReleaseAgeExcludes')
     }
   })
 
@@ -309,7 +309,7 @@ describe('Renovate workspace and PR policy', () => {
       },
       {
         matchManagers: ['dockerfile'],
-        matchFileNames: ['apps/invoicing/Dockerfile'],
+        matchFileNames: ['apps/invoice/Dockerfile'],
         matchUpdateTypes: ['pin'],
         schedule: [],
       },

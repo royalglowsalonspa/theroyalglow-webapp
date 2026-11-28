@@ -31,7 +31,7 @@
 import { financialYearIST } from '@rgss/business'
 import { AppError, ERROR_CODES } from '@rgss/errors'
 import fc from 'fast-check'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { branchContext, OTHER_BRANCH, TEST_BRANCH } from '@/test/branch-context'
 
 // ---------------------------------------------------------------------------
@@ -423,6 +423,8 @@ beforeEach(() => {
   mocks.requireBranchRole.mockResolvedValue(branchContext({ userId: 'u_admin' }))
   resetTaxConfiguration()
 })
+
+afterEach(() => vi.unstubAllEnvs())
 
 describe('POST /api/bookings/[id]/complete — completion transition (property)', () => {
   // Feature: backend-api, Property 26: Completion transitions to completed and creates a service invoice
@@ -1004,6 +1006,73 @@ describe('POST /api/bookings/[id]/complete — the invoice’s tax (R6.1, R6.4)'
     expect(json.data.invoice.taxReviewStatus).toBe('reviewed')
   })
 
+  it.each([
+    {
+      scope: 'selected branch',
+      branchId: TEST_BRANCH.id,
+      cutoff: '2020-01-01T00:00:00Z',
+      recipient: 'customer@example.invalid',
+      owned: true,
+    },
+    {
+      scope: 'other branch',
+      branchId: 'other-branch',
+      cutoff: '2020-01-01T00:00:00Z',
+      recipient: 'customer@example.invalid',
+      owned: false,
+    },
+    {
+      scope: 'before cutoff',
+      branchId: TEST_BRANCH.id,
+      cutoff: '2090-01-01T00:00:00Z',
+      recipient: 'customer@example.invalid',
+      owned: false,
+    },
+    {
+      scope: 'without a valid address',
+      branchId: TEST_BRANCH.id,
+      cutoff: '2020-01-01T00:00:00Z',
+      recipient: 'invalid',
+      owned: false,
+    },
+  ])(
+    'only hands eligible paid service checkout ownership to the Worker for $scope',
+    async ({ branchId, cutoff, recipient, owned }) => {
+      seed({ customerEmail: recipient })
+      harness.live = true
+      harness.branch = {
+        id: TEST_BRANCH.id,
+        number: 1,
+        name: TEST_BRANCH.name,
+        legalName: 'Royal Glow Salon and Spa LLP',
+        gstin: '29ABCDE1234F1Z5',
+      }
+      harness.versions = [version('999721', 500, { reviewStatus: 'reviewed' })]
+      vi.stubEnv('INVOICE_EVENTS_URL', 'https://invoice.test/internal/v1/invoice-events')
+      vi.stubEnv('INVOICE_EVENTS_SOURCE', 'staging')
+      vi.stubEnv('INVOICE_EVENTS_SECRET', 'fixture-issue-secret-at-least-32-characters')
+      vi.stubEnv('INVOICE_EVENTS_ACCESS_CLIENT_ID', 'fixture-client-id')
+      vi.stubEnv('INVOICE_EVENTS_ACCESS_CLIENT_SECRET', 'fixture-client-secret')
+      vi.stubEnv('INVOICE_AUTOMATIC_EMAIL_BRANCH_ID', branchId)
+      vi.stubEnv('INVOICE_AUTOMATIC_EMAIL_START_AT', cutoff)
+
+      expect((await POST(completeRequest('cash'), ctx)).status).toBe(200)
+      const [params] = dbMocks.completeBookingWithInvoice.mock.calls[0] ?? []
+      if (owned) {
+        expect(params).toMatchObject({
+          automaticDelivery: { branchId, cutoff: new Date(cutoff), source: 'staging', recipient },
+        })
+      } else {
+        expect(params).not.toHaveProperty('automaticDelivery')
+      }
+      expect(enqueueMocks.enqueueJob).toHaveBeenCalledWith(
+        '/api/jobs/invoice-pdf',
+        expect.objectContaining({ invoiceId: expect.any(String) }),
+        0,
+      )
+    },
+  )
+
   it('passes a stale or repeated completion’s 409 through and queues nothing', async () => {
     for (const error of [
       new AppError({
@@ -1216,6 +1285,49 @@ describe('POST /api/bookings/[id]/complete — offers (multi-branch offers.md)',
 })
 
 describe('POST /api/bookings/[id]/complete — the payment method', () => {
+  const paymentTenders = [
+    { method: 'cash', amountPaise: 75_025 },
+    { method: 'upi', amountPaise: 174_975 },
+  ]
+
+  it('forwards both receipts with one issued service invoice for the exact payable total', async () => {
+    seed({})
+
+    const res = await POST(completeWith({ paymentTenders }), ctx)
+
+    expect(res.status).toBe(200)
+    expect(dbMocks.completeBookingWithInvoice).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        paymentTenders,
+        invoice: expect.objectContaining({ paymentMethod: 'cash', totalAmountPaise: 250_000 }),
+      }),
+    )
+  })
+
+  it.each([
+    { method: 'upi', amountPaise: 174_974 },
+    { method: 'cash', amountPaise: 174_975 },
+    { method: 'upi', amountPaise: 174_974.5 },
+  ])('rejects an invalid split before any checkout write (%j)', async (secondTender) => {
+    const booking = seed({})
+
+    const res = await POST(completeWith({ paymentTenders: [paymentTenders[0], secondTender] }), ctx)
+
+    expect(res.status).toBe(400)
+    expect(dbMocks.completeBookingWithInvoice).not.toHaveBeenCalled()
+    expect(booking.status).toBe('confirmed')
+  })
+
+  it('keeps a prepaid membership session out of the split checkout path', async () => {
+    seedSession()
+
+    const res = await POST(completeWith({ paymentTenders }), ctx)
+
+    expect(res.status).toBe(400)
+    expect(dbMocks.completeMembershipSession).not.toHaveBeenCalled()
+    expect(dbMocks.completeBookingWithInvoice).not.toHaveBeenCalled()
+  })
+
   it('needs how the customer paid for an ordinary booking, billing nothing without it (400)', async () => {
     seed({ status: 'confirmed' })
 

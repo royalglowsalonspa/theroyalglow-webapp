@@ -8,6 +8,7 @@ const provider = 'https://qstash-us-east-1.upstash.io'
 const env = { token: 'test-schedule-token', appUrl, provider }
 const reminder = 'appointment-reminders'
 const settlement = 'settlement-close'
+const roster = 'invoice-staff-roster'
 
 function schedule(key: string, patch: Partial<Schedule> = {}): Schedule {
   const job = JOB_SCHEDULES.find((candidate) => candidate.key === key)
@@ -51,6 +52,18 @@ it('lists a scoped dry run without schedule changes', async () => {
     `Dry run for ${appUrl}`,
     `${settlement} 0 19 * * * ${appUrl}/api/jobs/${settlement} create`,
   ])
+})
+
+it.each([roster, 'invoice-outbox'])('requires explicit scope to register %s', async (jobKey) => {
+  stubProvider(JOB_SCHEDULES.filter(({ key }) => key !== jobKey).map(({ key }) => schedule(key)))
+
+  const full = vi.fn()
+  await registerSchedules(['--dry'], env, full)
+  expect(full.mock.calls.flat().join('\n')).not.toContain(jobKey)
+
+  const scoped = vi.fn()
+  await registerSchedules(['--dry', '--jobs', jobKey], env, scoped)
+  expect(scoped).toHaveBeenCalledWith(`${jobKey} */15 * * * * ${appUrl}/api/jobs/${jobKey} create`)
 })
 
 it('creates only missing selected schedules and leaves matching or unrelated schedules alone', async () => {

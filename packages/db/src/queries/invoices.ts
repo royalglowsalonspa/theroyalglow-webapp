@@ -30,13 +30,13 @@
  *                by the booking-completion flow, not here.
  ************************************************************/
 
-import type { InvoiceListQuery } from '@rgss/types'
+import { type InvoiceListQuery, splitCheckoutTendersSchema } from '@rgss/types'
 import { and, asc, desc, eq, ilike, ne, or, sql } from 'drizzle-orm'
 import { db } from '../index'
 import { user } from '../schema/auth'
 import { booking } from '../schema/booking'
 import { branch } from '../schema/branch'
-import { invoice, invoiceItem } from '../schema/invoice'
+import { invoice, invoiceIssueOutbox, invoiceItem } from '../schema/invoice'
 import { spaMembership } from '../schema/membership'
 import { membershipHold } from '../schema/membership-hold'
 import { customerProfile } from '../schema/profile'
@@ -116,6 +116,7 @@ export async function getInvoiceById(id: string, branchId: string) {
       totalAmountPaise: invoice.totalAmountPaise,
       invoiceType: invoice.invoiceType,
       paymentMethod: invoice.paymentMethod,
+      paymentTenders: sql<unknown>`${invoiceIssueOutbox.snapshot} #> '{invoice,paymentTenders}'`,
       paymentStatus: invoice.paymentStatus,
       paymentReference: invoice.paymentReference,
       gemsEarned: invoice.gemsEarned,
@@ -133,6 +134,7 @@ export async function getInvoiceById(id: string, branchId: string) {
     })
     .from(invoice)
     .innerJoin(user, eq(invoice.customerId, user.id))
+    .leftJoin(invoiceIssueOutbox, eq(invoiceIssueOutbox.invoiceId, invoice.id))
     .where(and(eq(invoice.id, id), eq(invoice.branchId, branchId)))
     .limit(1)
 
@@ -158,7 +160,11 @@ export async function getInvoiceById(id: string, branchId: string) {
     .where(eq(invoiceItem.invoiceId, id))
     .orderBy(asc(invoiceItem.displayOrder))
 
-  return { ...found, items }
+  return {
+    ...found,
+    items,
+    paymentTenders: splitCheckoutTendersSchema.nullish().parse(found.paymentTenders) ?? null,
+  }
 }
 
 /** Find the consumed membership session behind an eligible branch invoice. */
@@ -223,12 +229,15 @@ export async function getInvoiceForPdf(invoiceId: string) {
       branchEmail: branch.email,
       // Booking number (invoice may have no booking — membership purchase)
       bookingNumber: booking.bookingNumber,
+      paymentTenders: sql<unknown>`${invoiceIssueOutbox.snapshot} #> '{invoice,paymentTenders}'`,
+      workerOwnsEmail: sql<boolean>`coalesce(${invoiceIssueOutbox.snapshot} ? 'automaticDeliverySource', false)`,
     })
     .from(invoice)
     .innerJoin(user, eq(invoice.customerId, user.id))
     .innerJoin(branch, eq(invoice.branchId, branch.id))
     .leftJoin(customerProfile, eq(customerProfile.userId, invoice.customerId))
     .leftJoin(booking, eq(invoice.bookingId, booking.id))
+    .leftJoin(invoiceIssueOutbox, eq(invoiceIssueOutbox.invoiceId, invoice.id))
     .where(eq(invoice.id, invoiceId))
     .limit(1)
 
@@ -276,6 +285,8 @@ export async function getInvoiceForPdf(invoiceId: string) {
       phone: found.customerPhone,
     },
     bookingNumber: found.bookingNumber,
+    workerOwnsEmail: found.workerOwnsEmail,
+    paymentTenders: splitCheckoutTendersSchema.nullish().parse(found.paymentTenders) ?? null,
   }
 }
 

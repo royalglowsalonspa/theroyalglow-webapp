@@ -75,6 +75,7 @@ export function buildPdfPayload(loaded: LoadedInvoice): InvoicePdfPayload {
     invoiceNumber: inv.invoiceNumber,
     issuedAt: (inv.taxPointAt ?? inv.createdAt).toISOString(),
     paymentMethod: inv.paymentMethod,
+    ...(loaded.paymentTenders ? { paymentTenders: loaded.paymentTenders } : {}),
     bookingNumber: bookingNumber ?? undefined,
     taxReviewStatus: inv.taxReviewStatus ?? undefined,
     invoiceType: inv.invoiceType,

@@ -8,7 +8,7 @@
  *                CloudFront, via sst.aws.Nextjs (which wraps OpenNext).
  *
  *                ONLY these two apps run on AWS. apps/cms stays on Render,
- *                apps/invoicing stays on Cloud Run, and Neon, Upstash, QStash,
+ *                apps/invoice stays on Cloud Run, and Neon, Upstash, QStash,
  *                Resend, Ably and R2 are all unchanged — so this migration
  *                needs ZERO application code changes. See M2C/M2AWS.md.
  *
@@ -59,6 +59,59 @@ export default $config({
     const isProd = $app.stage === 'production'
     const rehearsal = readRehearsalConfig($app.stage, process.env)
     const qstashUrl = process.env.QSTASH_URL?.trim()
+    const invoiceRosterUrl = rehearsal?.invoiceRosterOrigin
+      ? `${rehearsal.invoiceRosterOrigin}/internal/v1/staff-roster`
+      : isProd
+        ? process.env.INVOICE_ROSTER_URL?.trim()
+        : undefined
+    const invoiceRosterSource = rehearsal
+      ? 'staging'
+      : isProd
+        ? process.env.INVOICE_ROSTER_SOURCE?.trim()
+        : undefined
+    const invoiceEventsUrl = rehearsal?.invoiceEventsOrigin
+      ? `${rehearsal.invoiceEventsOrigin}/internal/v1/invoice-events`
+      : isProd
+        ? process.env.INVOICE_EVENTS_URL?.trim()
+        : undefined
+    const invoiceEventsSource = rehearsal ? 'staging' : process.env.INVOICE_EVENTS_SOURCE?.trim()
+    if (isProd) {
+      if (
+        (invoiceRosterUrl || invoiceRosterSource) &&
+        (invoiceRosterUrl !== 'https://invoice.theroyalglow.in/internal/v1/staff-roster' ||
+          invoiceRosterSource !== 'production')
+      ) {
+        throw new Error(
+          'Set INVOICE_ROSTER_URL and INVOICE_ROSTER_SOURCE to the production invoice roster endpoint and source, or leave both unset.',
+        )
+      }
+      if (
+        (invoiceEventsUrl || invoiceEventsSource) &&
+        (invoiceEventsUrl !== 'https://invoice.theroyalglow.in/internal/v1/invoice-events' ||
+          invoiceEventsSource !== 'production')
+      ) {
+        throw new Error(
+          'Set INVOICE_EVENTS_URL and INVOICE_EVENTS_SOURCE to the production invoice event endpoint and source, or leave both unset.',
+        )
+      }
+    }
+    const deliveryPrefix = rehearsal ? 'REHEARSAL_' : isProd ? '' : undefined
+    const deliveryBranch =
+      deliveryPrefix === undefined
+        ? undefined
+        : process.env[`${deliveryPrefix}INVOICE_AUTOMATIC_EMAIL_BRANCH_ID`]?.trim()
+    const deliveryStart =
+      deliveryPrefix === undefined
+        ? undefined
+        : process.env[`${deliveryPrefix}INVOICE_AUTOMATIC_EMAIL_START_AT`]?.trim()
+    if (
+      (deliveryBranch || deliveryStart) &&
+      !(deliveryBranch && deliveryStart && invoiceEventsUrl && invoiceEventsSource)
+    ) {
+      throw new Error(
+        'Set both invoice automatic email cutover settings and the invoice publisher for this stage',
+      )
+    }
 
     // ── DNS ────────────────────────────────────────────────────────────────
     // theroyalglow.in is hosted on Cloudflare (blakely/jarred.ns.cloudflare.com)
@@ -243,6 +296,29 @@ export default $config({
         // customer site — must be set here so the build gets the right value.
         NEXT_PUBLIC_APP_URL: rehearsal?.admin.origin ?? 'https://admin.theroyalglow.in',
         BETTER_AUTH_URL: rehearsal?.admin.origin ?? 'https://admin.theroyalglow.in',
+        ...(invoiceRosterUrl &&
+          invoiceRosterSource && {
+            INVOICE_ROSTER_URL: invoiceRosterUrl,
+            INVOICE_ROSTER_SOURCE: invoiceRosterSource,
+            INVOICE_ROSTER_SECRET: stageSecret('InvoiceRosterSecret').value,
+            INVOICE_ROSTER_ACCESS_CLIENT_ID: stageSecret('InvoiceRosterAccessClientId').value,
+            INVOICE_ROSTER_ACCESS_CLIENT_SECRET: stageSecret('InvoiceRosterAccessClientSecret')
+              .value,
+          }),
+        ...(invoiceEventsUrl &&
+          invoiceEventsSource && {
+            INVOICE_EVENTS_URL: invoiceEventsUrl,
+            INVOICE_EVENTS_SOURCE: invoiceEventsSource,
+            INVOICE_EVENTS_SECRET: stageSecret('InvoiceEventsSecret').value,
+            INVOICE_EVENTS_ACCESS_CLIENT_ID: stageSecret('InvoiceEventsAccessClientId').value,
+            INVOICE_EVENTS_ACCESS_CLIENT_SECRET: stageSecret('InvoiceEventsAccessClientSecret')
+              .value,
+          }),
+        ...(deliveryBranch &&
+          deliveryStart && {
+            INVOICE_AUTOMATIC_EMAIL_BRANCH_ID: deliveryBranch,
+            INVOICE_AUTOMATIC_EMAIL_START_AT: deliveryStart,
+          }),
         // apps/admin/src/env.ts requires both; on Neon these are the pooled and
         // direct hosts respectively.
         DATABASE_URL_UNPOOLED: rehearsal

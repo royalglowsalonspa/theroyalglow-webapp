@@ -566,6 +566,43 @@ describe('BookingDetail — an ordinary booking may start before checkout', () =
     expect(screen.getByText('+15 gems awarded')).toBeInTheDocument()
   })
 
+  it('submits both split amounts in paise only when they match the checkout total', async () => {
+    current = booking({ totalAmountPaise: 50_000 })
+    stubActions({
+      complete: {
+        booking: { ...current, status: 'completed' },
+        invoice: { invoiceNumber: 'RS/2627/000045', totalPaise: 50_000, gstPaise: 0 },
+        gemsEarned: 5,
+      },
+    })
+    render(<BookingDetail bookingId="bk_1" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Complete & Checkout' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Split payment' }))
+    const submit = screen.getByRole('button', { name: 'Complete & Generate Invoice' })
+    const first = screen.getByLabelText('First amount (₹)')
+    const second = screen.getByLabelText('Second amount (₹)')
+    fireEvent.change(first, { target: { value: '125.05' } })
+    fireEvent.change(second, { target: { value: '374.94' } })
+    expect(submit).toBeDisabled()
+    expect(posts('complete')).toHaveLength(0)
+
+    fireEvent.change(second, { target: { value: '374.95' } })
+    expect(submit).toBeEnabled()
+    current = booking({ status: 'completed' })
+    fireEvent.click(submit)
+
+    await waitFor(() => expect(posts('complete')).toHaveLength(1))
+    expect(bodyOf(posts('complete')[0])).toEqual({
+      branchId: 'rs',
+      paymentTenders: [
+        { method: 'cash', amountPaise: 12_505 },
+        { method: 'upi', amountPaise: 37_495 },
+      ],
+    })
+    expect(await screen.findByText('RS/2627/000045')).toBeInTheDocument()
+  })
+
   // Offers from Payload, applied at the counter (multi-branch offers.md).
   function stubOffers(offers: unknown) {
     vi.stubGlobal(

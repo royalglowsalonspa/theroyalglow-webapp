@@ -36,6 +36,7 @@
 import { z } from 'zod'
 import { bookingStatusSchema } from './booking'
 import { renderedBranchIdSchema } from './branch'
+import { splitCheckoutTendersSchema } from './checkout-payment'
 
 // Query params for GET /api/bookings (admin). All filters are optional; when
 // omitted the listing returns every booking. `status` reuses the booking
@@ -96,18 +97,24 @@ export type AdminBookingActionInput = z.infer<typeof adminBookingActionSchema>
 // truthy value signals a redemption is requested). The server ALWAYS computes
 // the gem amount itself from live catalogue + balance data — a client-supplied
 // gem AMOUNT is never accepted here.
-export const completeBookingSchema = z.object({
-  branchId: renderedBranchIdSchema,
-  // Required for every booking but a membership session, which takes no
-  // payment: its minutes were paid for with the membership. The route checks.
-  paymentMethod: z.enum(['cash', 'upi', 'card']).optional(),
-  offerId: z.string().min(1).optional(),
-  gemsRedeemedServiceId: z.string().min(1).optional(),
-  redeemGems: z.boolean().optional(),
-  // Current clients send this for membership session completion. Older clients
-  // can still complete a session once without a replay key.
-  idempotencyKey: z.uuid().optional(),
-})
+export const completeBookingSchema = z
+  .object({
+    branchId: renderedBranchIdSchema,
+    // Required for every booking but a membership session, which takes no
+    // payment: its minutes were paid for with the membership. The route checks.
+    paymentMethod: z.enum(['cash', 'upi', 'card']).optional(),
+    paymentTenders: splitCheckoutTendersSchema.optional(),
+    offerId: z.string().min(1).optional(),
+    gemsRedeemedServiceId: z.string().min(1).optional(),
+    redeemGems: z.boolean().optional(),
+    // Current clients send this for membership session completion. Older clients
+    // can still complete a session once without a replay key.
+    idempotencyKey: z.uuid().optional(),
+  })
+  .refine(({ paymentMethod, paymentTenders }) => !paymentMethod || !paymentTenders, {
+    path: ['paymentTenders'],
+    message: 'Choose a single method or enter two payments.',
+  })
 export type CompleteBookingInput = z.infer<typeof completeBookingSchema>
 
 // Mark a confirmed booking as a no-show.

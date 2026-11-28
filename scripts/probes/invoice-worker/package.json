@@ -1,0 +1,20 @@
+{
+  "name": "rgss-invoice-worker-probe",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "scripts": {
+    "dev": "wrangler dev --ip 127.0.0.1",
+    "bundle": "wrangler deploy --dry-run --outdir dist/bundle",
+    "verify": "node verify.mjs"
+  },
+  "dependencies": {
+    "@fontsource/noto-sans-devanagari": "5.3.0",
+    "@fontsource/noto-sans-kannada": "5.3.0",
+    "@fontsource/noto-sans-telugu": "5.3.0",
+    "takumi-pdf": "0.21.3"
+  },
+  "devDependencies": {
+    "wrangler": "4.168.0"
+  }
+}

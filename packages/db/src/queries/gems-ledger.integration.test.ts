@@ -283,6 +283,17 @@ describe.skipIf(!LIVE)(
         db.execute(
           sql`delete from invoice_item where invoice_id in (select id from invoice where customer_id like ${like})`,
         ),
+        db.execute(
+          sql`delete from invoice_issue_outbox where invoice_id in (select id from invoice where customer_id like ${like})`,
+        ),
+        db.execute(
+          sql`delete from invoice_payment_allocation where invoice_id in (select id from invoice where customer_id like ${like})`,
+        ),
+        db.execute(
+          sql`delete from customer_payment p using invoice i
+              where i.customer_id like ${like} and p.branch_id = i.branch_id
+                and p.source = 'service_checkout' and p.source_key in (i.id, i.id || ':2')`,
+        ),
         db.execute(sql`delete from invoice where customer_id like ${like}`),
         db.execute(
           sql`delete from booking_status_log where booking_id in (select id from booking where customer_id like ${like})`,
@@ -314,6 +325,12 @@ describe.skipIf(!LIVE)(
       expect(await entries(first)).toEqual([])
 
       await completeFree(first, BRANCH_B, c.id)
+      expect(
+        await queryRows(sql`
+        select p.id from invoice i join customer_payment p on p.source_key = i.id
+        where i.booking_id = ${first} and p.source = 'service_checkout'
+      `),
+      ).toEqual([])
       expect(await entries(first)).toEqual([
         {
           kind: 'gems_redemption',

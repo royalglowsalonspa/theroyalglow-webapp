@@ -296,6 +296,9 @@ describe.skipIf(!LIVE)(
         db.execute(
           sql`delete from invoice_item where invoice_id in (select id from invoice where customer_id like ${like})`,
         ),
+        db.execute(
+          sql`delete from invoice_issue_outbox where invoice_id in (select id from invoice where customer_id like ${like})`,
+        ),
         db.execute(sql`delete from invoice where customer_id like ${like}`),
         db.execute(
           sql`delete from booking_service where booking_id in (select id from booking where customer_id like ${like})`,

@@ -319,8 +319,9 @@ if ($Suite -in @('typecheck', 'all')) {
   )))
 
   foreach ($appName in @('web', 'admin', 'cms', 'invoicing')) {
+    $configPath = if ($appName -eq 'invoicing') { 'apps/invoice/tsconfig.node.json' } else { "apps/$appName/tsconfig.json" }
     $scenarios.Add((New-Scenario -Name "$appName-typecheck" -Kind 'typecheck' -Iterations $TypecheckIterations -Arguments @(
-      'x', 'tsc', '--project', "apps/$appName/tsconfig.json", '--noEmit', '--incremental', 'false',
+      'x', 'tsc', '--project', $configPath, '--noEmit', '--incremental', 'false',
       '--extendedDiagnostics', '--pretty', 'false'
     )))
   }
@@ -340,8 +341,8 @@ if ($Suite -in @('build', 'all')) {
     -Environment $cmsBuildEnvironment `
     -CleanupPaths @('apps/cms/.next')))
   $scenarios.Add((New-Scenario -Name 'invoicing-build' -Kind 'build' -Iterations $BuildIterations `
-    -Arguments @('run', '--filter=@rgss/invoicing', 'build') `
-    -CleanupPaths @('apps/invoicing/dist')))
+    -Arguments @('run', '--filter=@rgss/invoice', 'build:node') `
+    -CleanupPaths @('apps/invoice/dist/node')))
 }
 
 $scenarioResults = [Collections.Generic.List[object]]::new()

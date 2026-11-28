@@ -1,20 +1,35 @@
 {
   "_comment": "AUTHORITATIVE DB-free canonical reference derived from the committed Drizzle latest snapshot selected by migrations/meta/_journal.json. Regenerate with `bun run drift:reference` after an intentional schema change captured by `drizzle-kit generate`, then commit this file with the migration.",
   "version": 1,
-  "hash": "01f3d94e5ef47c25e06400d16ebdfa1706824fc8821bd0d638f623fe9d13b9db",
+  "hash": "56ecf5e01918bd1655c753886bf3c20323c5399c0e01fb24ca8d017375cf573e",
   "fingerprint": {
     "enums": [
       {
         "name": "audit_action",
-        "labels": ["create", "update", "delete", "status_change"]
+        "labels": [
+          "create",
+          "update",
+          "delete",
+          "status_change"
+        ]
       },
       {
         "name": "booking_reassignment_reason",
-        "labels": ["left_branch", "unavailable", "overrun", "off_schedule", "designation_changed"]
+        "labels": [
+          "left_branch",
+          "unavailable",
+          "overrun",
+          "off_schedule",
+          "designation_changed"
+        ]
       },
       {
         "name": "booking_reassignment_resolution",
-        "labels": ["reassigned", "booking_ended", "started"]
+        "labels": [
+          "reassigned",
+          "booking_ended",
+          "started"
+        ]
       },
       {
         "name": "booking_status",
@@ -31,55 +46,112 @@
       },
       {
         "name": "branch_setting_section",
-        "labels": ["business_hours", "booking_rules"]
+        "labels": [
+          "business_hours",
+          "booking_rules"
+        ]
       },
       {
         "name": "branch_status",
-        "labels": ["operational", "temporarily_closed", "opens_soon", "shutdown"]
+        "labels": [
+          "operational",
+          "temporarily_closed",
+          "opens_soon",
+          "shutdown"
+        ]
       },
       {
         "name": "discount_type",
-        "labels": ["percentage", "flat", "combo_price"]
+        "labels": [
+          "percentage",
+          "flat",
+          "combo_price"
+        ]
       },
       {
         "name": "gender",
-        "labels": ["male", "female", "other", "prefer_not_to_say"]
+        "labels": [
+          "male",
+          "female",
+          "other",
+          "prefer_not_to_say"
+        ]
       },
       {
         "name": "invoice_type",
-        "labels": ["service", "membership_purchase", "membership_session"]
+        "labels": [
+          "service",
+          "membership_purchase",
+          "membership_session"
+        ]
       },
       {
         "name": "lead_status",
-        "labels": ["new", "contacted", "follow_up", "booked", "won", "lost"]
+        "labels": [
+          "new",
+          "contacted",
+          "follow_up",
+          "booked",
+          "won",
+          "lost"
+        ]
       },
       {
         "name": "leave_approval_status",
-        "labels": ["pending", "approved", "rejected"]
+        "labels": [
+          "pending",
+          "approved",
+          "rejected"
+        ]
       },
       {
         "name": "leave_type",
-        "labels": ["sick", "casual", "personal", "other"]
+        "labels": [
+          "sick",
+          "casual",
+          "personal",
+          "other"
+        ]
       },
       {
         "name": "loyalty_tx_type",
-        "labels": ["earned", "redeemed", "expired", "adjusted", "returned"]
+        "labels": [
+          "earned",
+          "redeemed",
+          "expired",
+          "adjusted",
+          "returned"
+        ]
       },
       {
         "name": "membership_hold_state",
-        "labels": ["held", "consumed", "released"]
+        "labels": [
+          "held",
+          "consumed",
+          "released"
+        ]
       },
       {
         "name": "note_visibility",
-        "labels": ["shared", "branch"]
+        "labels": [
+          "shared",
+          "branch"
+        ]
       },
       {
         "name": "notification_channel",
-        "labels": ["push", "email"]
+        "labels": [
+          "push",
+          "email"
+        ]
       },
       {
         "name": "notification_status",
-        "labels": ["pending", "sent", "failed"]
+        "labels": [
+          "pending",
+          "sent",
+          "failed"
+        ]
       },
       {
         "name": "notification_type",
@@ -114,39 +186,78 @@
       },
       {
         "name": "payment_method",
-        "labels": ["cash", "upi", "card", "online"]
+        "labels": [
+          "cash",
+          "upi",
+          "card",
+          "online"
+        ]
       },
       {
         "name": "payment_status",
-        "labels": ["pending", "paid", "refunded"]
+        "labels": [
+          "pending",
+          "paid",
+          "refunded"
+        ]
       },
       {
         "name": "realtime_revocation_outcome",
-        "labels": ["revoked", "expired", "not_configured"]
+        "labels": [
+          "revoked",
+          "expired",
+          "not_configured"
+        ]
       },
       {
         "name": "service_type",
-        "labels": ["salon", "spa"]
+        "labels": [
+          "salon",
+          "spa"
+        ]
       },
       {
         "name": "settlement_entry_kind",
-        "labels": ["membership_session", "gems_redemption", "reversal", "membership_correction"]
+        "labels": [
+          "membership_session",
+          "gems_redemption",
+          "reversal",
+          "membership_correction"
+        ]
       },
       {
         "name": "spa_membership_status",
-        "labels": ["active", "expired", "cancelled"]
+        "labels": [
+          "active",
+          "expired",
+          "cancelled"
+        ]
       },
       {
         "name": "staff_designation",
-        "labels": ["receptionist", "stylist", "therapist", "manager"]
+        "labels": [
+          "receptionist",
+          "stylist",
+          "therapist",
+          "manager"
+        ]
       },
       {
         "name": "tax_review_status",
-        "labels": ["provisional", "reviewed"]
+        "labels": [
+          "provisional",
+          "reviewed"
+        ]
       },
       {
         "name": "waitlist_status",
-        "labels": ["waiting", "notified", "booked", "expired", "cancelled"]
+        "labels": [
+          "waiting",
+          "notified",
+          "booked",
+          "expired",
+          "cancelled"
+        ]
       }
     ],
     "tables": [
@@ -238,26 +349,37 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["user_id"],
+            "columns": [
+              "user_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["account_id", "provider_id"],
+            "columns": [
+              "account_id",
+              "provider_id"
+            ],
             "unique": true,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["user_id"],
+            "columns": [
+              "user_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -328,32 +450,47 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["actor_id"],
+            "columns": [
+              "actor_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["actor_id", "created_at"],
+            "columns": [
+              "actor_id",
+              "created_at"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["branch_id", "created_at"],
+            "columns": [
+              "branch_id",
+              "created_at"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["entity_id", "entity_type"],
+            "columns": [
+              "entity_id",
+              "entity_type"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -544,95 +681,139 @@
             "default": "now()"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "booking_booking_number_unique",
-            "columns": ["booking_number"]
+            "columns": [
+              "booking_number"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["branch_id", "settings_revision"],
+            "columns": [
+              "branch_id",
+              "settings_revision"
+            ],
             "refTable": "branch_setting",
-            "refColumns": ["branch_id", "revision"],
+            "refColumns": [
+              "branch_id",
+              "revision"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["customer_id"],
+            "columns": [
+              "customer_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["offer_id"],
+            "columns": [
+              "offer_id"
+            ],
             "refTable": "offer",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "set null",
             "onUpdate": "no action"
           },
           {
-            "columns": ["spa_membership_id"],
+            "columns": [
+              "spa_membership_id"
+            ],
             "refTable": "spa_membership",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["booking_date", "branch_id"],
+            "columns": [
+              "booking_date",
+              "branch_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["booking_date", "service_type"],
+            "columns": [
+              "booking_date",
+              "service_type"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["booking_date"],
+            "columns": [
+              "booking_date"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["customer_id"],
+            "columns": [
+              "customer_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["offer_id"],
+            "columns": [
+              "offer_id"
+            ],
             "unique": false,
             "predicate": "offer_id IS NOT NULL",
             "method": "btree"
           },
           {
-            "columns": ["redemption_key"],
+            "columns": [
+              "redemption_key"
+            ],
             "unique": true,
             "predicate": "redemption_key IS NOT NULL",
             "method": "btree"
           },
           {
-            "columns": ["spa_membership_id"],
+            "columns": [
+              "spa_membership_id"
+            ],
             "unique": false,
             "predicate": "spa_membership_id IS NOT NULL",
             "method": "btree"
           },
           {
-            "columns": ["status"],
+            "columns": [
+              "status"
+            ],
             "unique": false,
             "predicate": "status NOT IN ('completed', 'cancelled', 'no_show')",
             "method": "btree"
@@ -697,47 +878,69 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["created_by_id"],
+            "columns": [
+              "created_by_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "set null",
             "onUpdate": "no action"
           },
           {
-            "columns": ["previous_staff_id"],
+            "columns": [
+              "previous_staff_id"
+            ],
             "refTable": "staff_profile",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "set null",
             "onUpdate": "no action"
           },
           {
-            "columns": ["resolved_by_id"],
+            "columns": [
+              "resolved_by_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "set null",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "unique": true,
             "predicate": "resolved_at IS NULL",
             "method": "btree"
@@ -796,40 +999,58 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["service_id"],
+            "columns": [
+              "service_id"
+            ],
             "refTable": "service",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["staff_id"],
+            "columns": [
+              "staff_id"
+            ],
             "refTable": "staff_profile",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "set null",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["staff_id"],
+            "columns": [
+              "staff_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -888,20 +1109,30 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["changed_by_id"],
+            "columns": [
+              "changed_by_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
@@ -1098,53 +1329,81 @@
             "default": "now()"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "branch_code_unique",
-            "columns": ["code"]
+            "columns": [
+              "code"
+            ]
           },
           {
             "name": "branch_invoice_prefix_unique",
-            "columns": ["invoice_prefix"]
+            "columns": [
+              "invoice_prefix"
+            ]
           },
           {
             "name": "branch_number_unique",
-            "columns": ["number"]
+            "columns": [
+              "number"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["created_by"],
+            "columns": [
+              "created_by"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["manager_user_id", "manager_role"],
+            "columns": [
+              "manager_user_id",
+              "manager_role"
+            ],
             "refTable": "user",
-            "refColumns": ["id", "role"],
+            "refColumns": [
+              "id",
+              "role"
+            ],
             "onDelete": "no action",
             "onUpdate": "no action"
           },
           {
-            "columns": ["owner_user_id", "owner_role"],
+            "columns": [
+              "owner_user_id",
+              "owner_role"
+            ],
             "refTable": "user",
-            "refColumns": ["id", "role"],
+            "refColumns": [
+              "id",
+              "role"
+            ],
             "onDelete": "no action",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["manager_user_id"],
+            "columns": [
+              "manager_user_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["owner_user_id"],
+            "columns": [
+              "owner_user_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -1203,25 +1462,38 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "branch_setting_branch_revision_unique",
-            "columns": ["branch_id", "revision"]
+            "columns": [
+              "branch_id",
+              "revision"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["created_by"],
+            "columns": [
+              "created_by"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
@@ -1364,66 +1636,102 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "branch_settlement_month_pair_unique",
-            "columns": ["branch_a_id", "branch_b_id", "month"]
+            "columns": [
+              "branch_a_id",
+              "branch_b_id",
+              "month"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["branch_a_id"],
+            "columns": [
+              "branch_a_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["branch_b_id"],
+            "columns": [
+              "branch_b_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["month"],
+            "columns": [
+              "month"
+            ],
             "refTable": "settlement_period",
-            "refColumns": ["month"],
+            "refColumns": [
+              "month"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["paid_recorded_by"],
+            "columns": [
+              "paid_recorded_by"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["paying_branch_id"],
+            "columns": [
+              "paying_branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["receiving_branch_id"],
+            "columns": [
+              "receiving_branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["branch_a_id", "month"],
+            "columns": [
+              "branch_a_id",
+              "month"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["branch_b_id", "month"],
+            "columns": [
+              "branch_b_id",
+              "month"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -1506,40 +1814,60 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["created_by"],
+            "columns": [
+              "created_by"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["reviewed_by"],
+            "columns": [
+              "reviewed_by"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["branch_id", "effective_from", "sac_code"],
+            "columns": [
+              "branch_id",
+              "effective_from",
+              "sac_code"
+            ],
             "unique": true,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -1580,11 +1908,15 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "business_hour_day_of_week_unique",
-            "columns": ["day_of_week"]
+            "columns": [
+              "day_of_week"
+            ]
           }
         ],
         "foreignKeys": [],
@@ -1618,25 +1950,38 @@
             "default": null
           }
         ],
-        "primaryKey": ["customer_id", "request_key"],
+        "primaryKey": [
+          "customer_id",
+          "request_key"
+        ],
         "uniques": [
           {
             "name": "customer_booking_request_booking_id_unique",
-            "columns": ["booking_id"]
+            "columns": [
+              "booking_id"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["customer_id"],
+            "columns": [
+              "customer_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
@@ -1695,48 +2040,193 @@
             "default": "'branch'"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["author_id"],
+            "columns": [
+              "author_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "set null",
             "onUpdate": "no action"
           },
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["customer_id"],
+            "columns": [
+              "customer_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "unique": false,
             "predicate": "booking_id IS NOT NULL",
             "method": "btree"
           },
           {
-            "columns": ["branch_id", "customer_id"],
+            "columns": [
+              "branch_id",
+              "customer_id"
+            ],
             "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "customer_payment",
+        "columns": [
+          {
+            "name": "amount_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "payment_method",
+            "type": "payment_method",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "payment_reference",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "received_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "recorded_by",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "source",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "source_key",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": [
+              "branch_id"
+            ],
+            "refTable": "branch",
+            "refColumns": [
+              "id"
+            ],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": [
+              "recorded_by"
+            ],
+            "refTable": "user",
+            "refColumns": [
+              "id"
+            ],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "branch_id",
+              "id"
+            ],
+            "unique": true,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": [
+              "branch_id",
+              "received_at"
+            ],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": [
+              "source",
+              "source_key"
+            ],
+            "unique": true,
             "predicate": null,
             "method": "btree"
           }
@@ -1884,25 +2374,35 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "customer_profile_user_id_unique",
-            "columns": ["user_id"]
+            "columns": [
+              "user_id"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["user_id"],
+            "columns": [
+              "user_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["user_id"],
+            "columns": [
+              "user_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -1949,11 +2449,15 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "customer_tag_slug_unique",
-            "columns": ["slug"]
+            "columns": [
+              "slug"
+            ]
           }
         ],
         "foreignKeys": [],
@@ -1987,34 +2491,51 @@
             "default": null
           }
         ],
-        "primaryKey": ["customer_id", "tag_id"],
+        "primaryKey": [
+          "customer_id",
+          "tag_id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["assigned_by"],
+            "columns": [
+              "assigned_by"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["customer_id"],
+            "columns": [
+              "customer_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["tag_id"],
+            "columns": [
+              "tag_id"
+            ],
             "refTable": "customer_tag",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["tag_id"],
+            "columns": [
+              "tag_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -2145,18 +2666,27 @@
             "default": "0"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "daily_sales_summary_date_branch_id_unique",
-            "columns": ["branch_id", "date"]
+            "columns": [
+              "branch_id",
+              "date"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
@@ -2197,26 +2727,37 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["branch_id", "date"],
+            "columns": [
+              "branch_id",
+              "date"
+            ],
             "unique": true,
             "predicate": "branch_id IS NOT NULL",
             "method": "btree"
           },
           {
-            "columns": ["date"],
+            "columns": [
+              "date"
+            ],
             "unique": true,
             "predicate": "branch_id IS NULL",
             "method": "btree"
@@ -2449,85 +2990,220 @@
             "default": "now()"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "invoice_invoice_number_unique",
-            "columns": ["invoice_number"]
+            "columns": [
+              "invoice_number"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["customer_id"],
+            "columns": [
+              "customer_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["gems_redeemed_service_id"],
+            "columns": [
+              "gems_redeemed_service_id"
+            ],
             "refTable": "service",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["offer_id"],
+            "columns": [
+              "offer_id"
+            ],
             "refTable": "offer",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "unique": true,
             "predicate": "booking_id IS NOT NULL",
             "method": "btree"
           },
           {
-            "columns": ["branch_id", "financial_year", "sequence_number"],
+            "columns": [
+              "branch_id",
+              "financial_year",
+              "sequence_number"
+            ],
             "unique": true,
             "predicate": "sequence_number IS NOT NULL",
             "method": "btree"
           },
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id",
+              "id"
+            ],
+            "unique": true,
+            "predicate": null,
+            "method": "btree"
+          },
+          {
+            "columns": [
+              "branch_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["customer_id"],
+            "columns": [
+              "customer_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["offer_id"],
+            "columns": [
+              "offer_id"
+            ],
             "unique": false,
             "predicate": "offer_id IS NOT NULL",
             "method": "btree"
           },
           {
-            "columns": ["paid_at"],
+            "columns": [
+              "paid_at"
+            ],
             "unique": false,
             "predicate": "payment_status = 'paid'",
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "invoice_issue_outbox",
+        "columns": [
+          {
+            "name": "attempts",
+            "type": "integer",
+            "nullable": false,
+            "default": "0"
+          },
+          {
+            "name": "captured_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "event_body",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "failed_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "invoice_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "lease_token",
+            "type": "text",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "published_at",
+            "type": "timestamptz",
+            "nullable": true,
+            "default": null
+          },
+          {
+            "name": "ready_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "snapshot",
+            "type": "jsonb",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": [
+          "invoice_id"
+        ],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": [
+              "invoice_id"
+            ],
+            "refTable": "invoice",
+            "refColumns": [
+              "id"
+            ],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "captured_at",
+              "invoice_id",
+              "ready_at"
+            ],
+            "unique": false,
+            "predicate": "\"invoice_issue_outbox\".\"published_at\" IS NULL AND \"invoice_issue_outbox\".\"failed_at\" IS NULL",
             "method": "btree"
           }
         ]
@@ -2638,40 +3314,136 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["invoice_id"],
+            "columns": [
+              "invoice_id"
+            ],
             "refTable": "invoice",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["service_id"],
+            "columns": [
+              "service_id"
+            ],
             "refTable": "service",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["tax_version_id"],
+            "columns": [
+              "tax_version_id"
+            ],
             "refTable": "branch_tax_version",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["invoice_id"],
+            "columns": [
+              "invoice_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["tax_version_id"],
+            "columns": [
+              "tax_version_id"
+            ],
+            "unique": false,
+            "predicate": null,
+            "method": "btree"
+          }
+        ]
+      },
+      {
+        "name": "invoice_payment_allocation",
+        "columns": [
+          {
+            "name": "amount_paise",
+            "type": "integer",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "branch_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "invoice_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          },
+          {
+            "name": "payment_id",
+            "type": "text",
+            "nullable": false,
+            "default": null
+          }
+        ],
+        "primaryKey": [
+          "payment_id",
+          "invoice_id"
+        ],
+        "uniques": [],
+        "foreignKeys": [
+          {
+            "columns": [
+              "invoice_id",
+              "branch_id"
+            ],
+            "refTable": "invoice",
+            "refColumns": [
+              "id",
+              "branch_id"
+            ],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          },
+          {
+            "columns": [
+              "payment_id",
+              "branch_id"
+            ],
+            "refTable": "customer_payment",
+            "refColumns": [
+              "id",
+              "branch_id"
+            ],
+            "onDelete": "restrict",
+            "onUpdate": "no action"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "invoice_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -2706,13 +3478,20 @@
             "default": "now()"
           }
         ],
-        "primaryKey": ["branch_id", "financial_year"],
+        "primaryKey": [
+          "branch_id",
+          "financial_year"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
@@ -2831,59 +3610,86 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["assigned_to"],
+            "columns": [
+              "assigned_to"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "set null",
             "onUpdate": "no action"
           },
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["converted_booking_id"],
+            "columns": [
+              "converted_booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "set null",
             "onUpdate": "no action"
           },
           {
-            "columns": ["service_interested_id"],
+            "columns": [
+              "service_interested_id"
+            ],
             "refTable": "service",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "set null",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["assigned_to"],
+            "columns": [
+              "assigned_to"
+            ],
             "unique": false,
             "predicate": "status NOT IN ('won', 'lost')",
             "method": "btree"
           },
           {
-            "columns": ["branch_id", "status"],
+            "columns": [
+              "branch_id",
+              "status"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["status"],
+            "columns": [
+              "status"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["utm_campaign"],
+            "columns": [
+              "utm_campaign"
+            ],
             "unique": false,
             "predicate": "utm_campaign IS NOT NULL",
             "method": "btree"
@@ -2924,20 +3730,30 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["author_id"],
+            "columns": [
+              "author_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["lead_id"],
+            "columns": [
+              "lead_id"
+            ],
             "refTable": "lead",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
@@ -2990,18 +3806,26 @@
             "default": "now()"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "loyalty_account_customer_id_unique",
-            "columns": ["customer_id"]
+            "columns": [
+              "customer_id"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["customer_id"],
+            "columns": [
+              "customer_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
@@ -3048,32 +3872,47 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "loyalty_allocation_redemption_batch_unique",
-            "columns": ["batch_id", "redemption_id"]
+            "columns": [
+              "batch_id",
+              "redemption_id"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["batch_id"],
+            "columns": [
+              "batch_id"
+            ],
             "refTable": "loyalty_transaction",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["redemption_id"],
+            "columns": [
+              "redemption_id"
+            ],
             "refTable": "loyalty_transaction",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["batch_id"],
+            "columns": [
+              "batch_id"
+            ],
             "unique": false,
             "predicate": "released_at IS NULL",
             "method": "btree"
@@ -3156,85 +3995,125 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["batch_id"],
+            "columns": [
+              "batch_id"
+            ],
             "refTable": "loyalty_transaction",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "set null",
             "onUpdate": "no action"
           },
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["invoice_id"],
+            "columns": [
+              "invoice_id"
+            ],
             "refTable": "invoice",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["loyalty_account_id"],
+            "columns": [
+              "loyalty_account_id"
+            ],
             "refTable": "loyalty_account",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["redemption_id"],
+            "columns": [
+              "redemption_id"
+            ],
             "refTable": "loyalty_transaction",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["batch_id"],
+            "columns": [
+              "batch_id"
+            ],
             "unique": false,
             "predicate": "batch_id IS NOT NULL",
             "method": "btree"
           },
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "unique": false,
             "predicate": "booking_id IS NOT NULL",
             "method": "btree"
           },
           {
-            "columns": ["branch_id", "created_at"],
+            "columns": [
+              "branch_id",
+              "created_at"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["created_at", "loyalty_account_id"],
+            "columns": [
+              "created_at",
+              "loyalty_account_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["expires_at"],
+            "columns": [
+              "expires_at"
+            ],
             "unique": false,
             "predicate": "type = 'earned' AND expires_at IS NOT NULL",
             "method": "btree"
           },
           {
-            "columns": ["redemption_id"],
+            "columns": [
+              "redemption_id"
+            ],
             "unique": true,
             "predicate": "redemption_id IS NOT NULL",
             "method": "btree"
@@ -3311,65 +4190,100 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "membership_correction_branch_key",
-            "columns": ["branch_id", "idempotency_key"]
+            "columns": [
+              "branch_id",
+              "idempotency_key"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["membership_id"],
+            "columns": [
+              "membership_id"
+            ],
             "refTable": "spa_membership",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["original_invoice_id"],
+            "columns": [
+              "original_invoice_id"
+            ],
             "refTable": "invoice",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["performed_by"],
+            "columns": [
+              "performed_by"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["branch_id", "membership_id", "performed_at"],
+            "columns": [
+              "branch_id",
+              "membership_id",
+              "performed_at"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["branch_id", "original_invoice_id", "performed_at"],
+            "columns": [
+              "branch_id",
+              "original_invoice_id",
+              "performed_at"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -3434,39 +4348,57 @@
             "default": "'held'"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "membership_hold_booking_unique",
-            "columns": ["booking_id"]
+            "columns": [
+              "booking_id"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["spa_membership_id"],
+            "columns": [
+              "spa_membership_id"
+            ],
             "refTable": "spa_membership",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["spa_membership_id"],
+            "columns": [
+              "spa_membership_id"
+            ],
             "unique": false,
             "predicate": "state = 'held'",
             "method": "btree"
@@ -3507,25 +4439,38 @@
             "default": null
           }
         ],
-        "primaryKey": ["booking_id"],
+        "primaryKey": [
+          "booking_id"
+        ],
         "uniques": [
           {
             "name": "membership_session_completion_actor_key",
-            "columns": ["actor_id", "idempotency_key"]
+            "columns": [
+              "actor_id",
+              "idempotency_key"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["actor_id"],
+            "columns": [
+              "actor_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
@@ -3602,18 +4547,29 @@
             "default": "0"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "monthly_gst_summary_month_branch_issuer_sac_unique",
-            "columns": ["branch_id", "issuer_gstin", "month", "sac_code"]
+            "columns": [
+              "branch_id",
+              "issuer_gstin",
+              "month",
+              "sac_code"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
@@ -3690,27 +4646,40 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "set null",
             "onUpdate": "no action"
           },
           {
-            "columns": ["user_id"],
+            "columns": [
+              "user_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["created_at", "status"],
+            "columns": [
+              "created_at",
+              "status"
+            ],
             "unique": false,
             "predicate": "status = 'pending'",
             "method": "btree"
@@ -3829,21 +4798,29 @@
             "default": "now()"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "offer_cms_id_unique",
-            "columns": ["cms_id"]
+            "columns": [
+              "cms_id"
+            ]
           },
           {
             "name": "offer_slug_unique",
-            "columns": ["slug"]
+            "columns": [
+              "slug"
+            ]
           }
         ],
         "foreignKeys": [],
         "indexes": [
           {
-            "columns": ["display_order"],
+            "columns": [
+              "display_order"
+            ],
             "unique": false,
             "predicate": "is_active = true",
             "method": "btree"
@@ -3890,38 +4867,56 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "offer_redemption_customer_id_redeemed_date_unique",
-            "columns": ["customer_id", "redeemed_date"]
+            "columns": [
+              "customer_id",
+              "redeemed_date"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["customer_id"],
+            "columns": [
+              "customer_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["offer_id"],
+            "columns": [
+              "offer_id"
+            ],
             "refTable": "offer",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["customer_id", "redeemed_date"],
+            "columns": [
+              "customer_id",
+              "redeemed_date"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["offer_id"],
+            "columns": [
+              "offer_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -3944,20 +4939,31 @@
             "default": null
           }
         ],
-        "primaryKey": ["offer_id", "service_id"],
+        "primaryKey": [
+          "offer_id",
+          "service_id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["offer_id"],
+            "columns": [
+              "offer_id"
+            ],
             "refTable": "offer",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["service_id"],
+            "columns": [
+              "service_id"
+            ],
             "refTable": "service",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
@@ -4022,26 +5028,36 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["user_id"],
+            "columns": [
+              "user_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["endpoint"],
+            "columns": [
+              "endpoint"
+            ],
             "unique": true,
             "predicate": "is_active = true",
             "method": "btree"
           },
           {
-            "columns": ["user_id"],
+            "columns": [
+              "user_id"
+            ],
             "unique": false,
             "predicate": "is_active = true",
             "method": "btree"
@@ -4100,26 +5116,36 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["user_id"],
+            "columns": [
+              "user_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["requested_at"],
+            "columns": [
+              "requested_at"
+            ],
             "unique": false,
             "predicate": "resolved_at IS NULL",
             "method": "btree"
           },
           {
-            "columns": ["user_id"],
+            "columns": [
+              "user_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -4238,31 +5264,43 @@
             "default": "now()"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "service_slug_unique",
-            "columns": ["slug"]
+            "columns": [
+              "slug"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["category_id"],
+            "columns": [
+              "category_id"
+            ],
             "refTable": "service_category",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["category_id"],
+            "columns": [
+              "category_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["id"],
+            "columns": [
+              "id"
+            ],
             "unique": false,
             "predicate": "gems_redeemable = true AND is_active = true",
             "method": "btree"
@@ -4285,27 +5323,40 @@
             "default": null
           }
         ],
-        "primaryKey": ["service_id", "branch_id"],
+        "primaryKey": [
+          "service_id",
+          "branch_id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["service_id"],
+            "columns": [
+              "service_id"
+            ],
             "refTable": "service",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -4382,11 +5433,15 @@
             "default": "now()"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "service_category_slug_unique",
-            "columns": ["slug"]
+            "columns": [
+              "slug"
+            ]
           }
         ],
         "foreignKeys": [],
@@ -4408,27 +5463,40 @@
             "default": null
           }
         ],
-        "primaryKey": ["category_id", "branch_id"],
+        "primaryKey": [
+          "category_id",
+          "branch_id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["category_id"],
+            "columns": [
+              "category_id"
+            ],
             "refTable": "service_category",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -4487,25 +5555,35 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "session_token_unique",
-            "columns": ["token"]
+            "columns": [
+              "token"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["user_id"],
+            "columns": [
+              "user_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["user_id"],
+            "columns": [
+              "user_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -4636,118 +5714,176 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["created_by"],
+            "columns": [
+              "created_by"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["loyalty_transaction_id"],
+            "columns": [
+              "loyalty_transaction_id"
+            ],
             "refTable": "loyalty_transaction",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["membership_correction_id"],
+            "columns": [
+              "membership_correction_id"
+            ],
             "refTable": "membership_correction",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["owed_branch_id"],
+            "columns": [
+              "owed_branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["owing_branch_id"],
+            "columns": [
+              "owing_branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["posting_month"],
+            "columns": [
+              "posting_month"
+            ],
             "refTable": "settlement_period",
-            "refColumns": ["month"],
+            "refColumns": [
+              "month"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["reverses_entry_id"],
+            "columns": [
+              "reverses_entry_id"
+            ],
             "refTable": "settlement_entry",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["spa_membership_id"],
+            "columns": [
+              "spa_membership_id"
+            ],
             "refTable": "spa_membership",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "unique": false,
             "predicate": "booking_id IS NOT NULL",
             "method": "btree"
           },
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "unique": true,
             "predicate": "kind = 'membership_session'",
             "method": "btree"
           },
           {
-            "columns": ["loyalty_transaction_id", "owing_branch_id"],
+            "columns": [
+              "loyalty_transaction_id",
+              "owing_branch_id"
+            ],
             "unique": true,
             "predicate": "kind = 'gems_redemption'",
             "method": "btree"
           },
           {
-            "columns": ["membership_correction_id"],
+            "columns": [
+              "membership_correction_id"
+            ],
             "unique": true,
             "predicate": "membership_correction_id IS NOT NULL",
             "method": "btree"
           },
           {
-            "columns": ["owed_branch_id", "owing_branch_id", "posting_month"],
+            "columns": [
+              "owed_branch_id",
+              "owing_branch_id",
+              "posting_month"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["owed_branch_id", "posting_month"],
+            "columns": [
+              "owed_branch_id",
+              "posting_month"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["reverses_entry_id"],
+            "columns": [
+              "reverses_entry_id"
+            ],
             "unique": true,
             "predicate": "reverses_entry_id IS NOT NULL",
             "method": "btree"
           },
           {
-            "columns": ["spa_membership_id"],
+            "columns": [
+              "spa_membership_id"
+            ],
             "unique": false,
             "predicate": "spa_membership_id IS NOT NULL",
             "method": "btree"
@@ -4776,7 +5912,9 @@
             "default": null
           }
         ],
-        "primaryKey": ["month"],
+        "primaryKey": [
+          "month"
+        ],
         "uniques": [],
         "foreignKeys": [],
         "indexes": []
@@ -4821,27 +5959,41 @@
             "default": null
           }
         ],
-        "primaryKey": ["month", "branch_id"],
+        "primaryKey": [
+          "month",
+          "branch_id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["month"],
+            "columns": [
+              "month"
+            ],
             "refTable": "settlement_period",
-            "refColumns": ["month"],
+            "refColumns": [
+              "month"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["branch_id", "month"],
+            "columns": [
+              "branch_id",
+              "month"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -4972,64 +6124,92 @@
             "default": "0"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "spa_membership_membership_number_unique",
-            "columns": ["membership_number"]
+            "columns": [
+              "membership_number"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["created_by"],
+            "columns": [
+              "created_by"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["customer_id"],
+            "columns": [
+              "customer_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["selling_branch_id"],
+            "columns": [
+              "selling_branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["tier_id"],
+            "columns": [
+              "tier_id"
+            ],
             "refTable": "spa_membership_tier",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["customer_id"],
+            "columns": [
+              "customer_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["customer_id"],
+            "columns": [
+              "customer_id"
+            ],
             "unique": true,
             "predicate": "status = 'active'",
             "method": "btree"
           },
           {
-            "columns": ["expires_at"],
+            "columns": [
+              "expires_at"
+            ],
             "unique": false,
             "predicate": "status = 'active'",
             "method": "btree"
           },
           {
-            "columns": ["selling_branch_id"],
+            "columns": [
+              "selling_branch_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -5112,15 +6292,21 @@
             "default": "now()"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "spa_membership_tier_name_unique",
-            "columns": ["name"]
+            "columns": [
+              "name"
+            ]
           },
           {
             "name": "spa_membership_tier_slug_unique",
-            "columns": ["slug"]
+            "columns": [
+              "slug"
+            ]
           }
         ],
         "foreignKeys": [],
@@ -5160,27 +6346,41 @@
             "default": null
           }
         ],
-        "primaryKey": ["booking_id"],
+        "primaryKey": [
+          "booking_id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["staff_id"],
+            "columns": [
+              "staff_id"
+            ],
             "refTable": "staff_profile",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
@@ -5263,51 +6463,75 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "staff_profile_user_id_unique",
-            "columns": ["user_id"]
+            "columns": [
+              "user_id"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["user_id", "role_witness"],
+            "columns": [
+              "user_id",
+              "role_witness"
+            ],
             "refTable": "user",
-            "refColumns": ["id", "role"],
+            "refColumns": [
+              "id",
+              "role"
+            ],
             "onDelete": "no action",
             "onUpdate": "no action"
           },
           {
-            "columns": ["user_id"],
+            "columns": [
+              "user_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "unique": true,
             "predicate": "role_witness = 'receptionist'",
             "method": "btree"
           },
           {
-            "columns": ["user_id"],
+            "columns": [
+              "user_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -5360,38 +6584,57 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "staff_schedule_staff_id_day_of_week_unique",
-            "columns": ["day_of_week", "staff_id"]
+            "columns": [
+              "day_of_week",
+              "staff_id"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["staff_id"],
+            "columns": [
+              "staff_id"
+            ],
             "refTable": "staff_profile",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["branch_id", "day_of_week"],
+            "columns": [
+              "branch_id",
+              "day_of_week"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
           },
           {
-            "columns": ["day_of_week", "staff_id"],
+            "columns": [
+              "day_of_week",
+              "staff_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -5414,20 +6657,31 @@
             "default": null
           }
         ],
-        "primaryKey": ["staff_id", "service_id"],
+        "primaryKey": [
+          "staff_id",
+          "service_id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["service_id"],
+            "columns": [
+              "service_id"
+            ],
             "refTable": "service",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["staff_id"],
+            "columns": [
+              "staff_id"
+            ],
             "refTable": "staff_profile",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
@@ -5504,32 +6758,48 @@
             "default": "now()"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "staff_time_off_staff_id_date_unique",
-            "columns": ["date", "staff_id"]
+            "columns": [
+              "date",
+              "staff_id"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["reviewed_by"],
+            "columns": [
+              "reviewed_by"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "set null",
             "onUpdate": "no action"
           },
           {
-            "columns": ["staff_id"],
+            "columns": [
+              "staff_id"
+            ],
             "refTable": "staff_profile",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["date", "staff_id"],
+            "columns": [
+              "date",
+              "staff_id"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"
@@ -5570,27 +6840,41 @@
             "default": null
           }
         ],
-        "primaryKey": ["booking_id"],
+        "primaryKey": [
+          "booking_id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["booking_id"],
+            "columns": [
+              "booking_id"
+            ],
             "refTable": "booking",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["staff_id"],
+            "columns": [
+              "staff_id"
+            ],
             "refTable": "staff_profile",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           }
@@ -5637,18 +6921,26 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "system_setting_key_unique",
-            "columns": ["key"]
+            "columns": [
+              "key"
+            ]
           }
         ],
         "foreignKeys": [
           {
-            "columns": ["updated_by"],
+            "columns": [
+              "updated_by"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "set null",
             "onUpdate": "no action"
           }
@@ -5725,21 +7017,30 @@
             "default": "now()"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [
           {
             "name": "user_email_unique",
-            "columns": ["email"]
+            "columns": [
+              "email"
+            ]
           },
           {
             "name": "user_id_role_key",
-            "columns": ["id", "role"]
+            "columns": [
+              "id",
+              "role"
+            ]
           }
         ],
         "foreignKeys": [],
         "indexes": [
           {
-            "columns": ["role"],
+            "columns": [
+              "role"
+            ],
             "unique": true,
             "predicate": "role = 'developer'",
             "method": "btree"
@@ -5786,7 +7087,9 @@
             "default": null
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [],
         "indexes": []
@@ -5861,41 +7164,62 @@
             "default": "'waiting'"
           }
         ],
-        "primaryKey": ["id"],
+        "primaryKey": [
+          "id"
+        ],
         "uniques": [],
         "foreignKeys": [
           {
-            "columns": ["branch_id"],
+            "columns": [
+              "branch_id"
+            ],
             "refTable": "branch",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           },
           {
-            "columns": ["customer_id"],
+            "columns": [
+              "customer_id"
+            ],
             "refTable": "user",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "cascade",
             "onUpdate": "no action"
           },
           {
-            "columns": ["preferred_staff_id"],
+            "columns": [
+              "preferred_staff_id"
+            ],
             "refTable": "staff_profile",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "set null",
             "onUpdate": "no action"
           },
           {
-            "columns": ["service_id"],
+            "columns": [
+              "service_id"
+            ],
             "refTable": "service",
-            "refColumns": ["id"],
+            "refColumns": [
+              "id"
+            ],
             "onDelete": "restrict",
             "onUpdate": "no action"
           }
         ],
         "indexes": [
           {
-            "columns": ["branch_id", "preferred_date"],
+            "columns": [
+              "branch_id",
+              "preferred_date"
+            ],
             "unique": false,
             "predicate": null,
             "method": "btree"

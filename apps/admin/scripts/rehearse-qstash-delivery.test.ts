@@ -233,3 +233,17 @@ it('reports missing, duplicate, disabled and unexpected jobs without matching ot
   ])
   expect(result.unexpected).toEqual([{ scheduleId: 'unexpected', path: '/api/jobs/invoice-pdf' }])
 })
+
+it('verifies required schedules when the invoice roster publisher is not registered', async () => {
+  stubTransport(
+    Response.json(
+      fixtureSchedules.filter(
+        ({ destination }) => !destination.endsWith('/api/jobs/invoice-staff-roster'),
+      ),
+    ),
+  )
+  const result = await runQStashCheck(['--verify-schedules'], fixtureEnv)
+  expect(result).toMatchObject({ verified: true })
+  if (!('verified' in result)) throw new Error('Expected schedule evidence')
+  expect(result.checks).toContainEqual({ job: 'invoice-staff-roster', status: 'not-configured' })
+})

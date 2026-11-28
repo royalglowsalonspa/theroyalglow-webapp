@@ -45,7 +45,7 @@ import {
   HISTORICAL_SESSION_MAX_MINUTES,
   type SettlementSetting,
 } from '@rgss/types'
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { nanoid } from 'nanoid'
 import { db } from '../index'
@@ -248,6 +248,39 @@ export async function getMemberships(filters: MembershipFilters = {}) {
   }))
 }
 
+/** The selling branch's usable membership pool at the observation instant. */
+export async function getBranchMembershipBalances(branchId: string, observed: Date) {
+  const expiresThrough = new Date(observed.getTime() + 30 * 24 * 60 * 60 * 1000)
+  const available = sql`${spaMembership.totalHoursMinutes} - ${spaMembership.usedHoursMinutes} - ${spaMembership.reservedMinutes}`
+  const [balances] = await db
+    .select({
+      activeCount: count(),
+      purchasedMinutes: sql`coalesce(sum(${spaMembership.totalHoursMinutes}), 0)`.mapWith(Number),
+      usedMinutes: sql`coalesce(sum(${spaMembership.usedHoursMinutes}), 0)`.mapWith(Number),
+      heldMinutes: sql`coalesce(sum(${spaMembership.reservedMinutes}), 0)`.mapWith(Number),
+      availableMinutes: sql`coalesce(sum(${available}), 0)`.mapWith(Number),
+      expiringAvailableMinutes:
+        sql`coalesce(sum(${available}) filter (where ${lte(spaMembership.expiresAt, expiresThrough)}), 0)`.mapWith(
+          Number,
+        ),
+    })
+    .from(spaMembership)
+    .where(
+      and(
+        eq(sellingBranchIdSql, branchId),
+        eq(spaMembership.status, 'active'),
+        lte(spaMembership.startsAt, observed),
+        gte(spaMembership.expiresAt, observed),
+      ),
+    )
+  if (
+    !balances ||
+    Object.values(balances).some((value) => !Number.isSafeInteger(value) || value < 0)
+  )
+    throw new Error('Invalid membership balance totals')
+  return balances
+}
+
 /** A membership as its customer sees it: no tier and no usual price (R9.1, MS-17). */
 export type OwnMembership = {
   id: string
@@ -444,7 +477,7 @@ export async function createMembershipWithInvoice(params: CreateMembershipWithIn
 
   // The selling branch issues the purchase invoice: its next number, its
   // issuer snapshot, the line's tax facts (multi-branch R6). No gems.
-  const { counter, insertInvoice, insertLines } = issueInvoiceStatements(
+  const { counter, insertInvoice, insertLines, insertSnapshot } = issueInvoiceStatements(
     {
       ...params.invoice,
       id: invoiceId,
@@ -467,6 +500,7 @@ export async function createMembershipWithInvoice(params: CreateMembershipWithIn
   if (insertLines) {
     statements.push(insertLines)
   }
+  statements.push(insertSnapshot)
   statements.push(refreshCustomerStatsStatement(params.customerId))
   const results = await db.batch(statements).catch((error: unknown) => {
     // Another sale may commit after the active membership pre-check.
@@ -846,7 +880,7 @@ async function finishMembershipSession(
     throw new Error('Membership session needs one tax classification per service')
   }
 
-  const { counter, insertInvoice, insertLines } = issueInvoiceStatements(
+  const { counter, insertInvoice, insertLines, insertSnapshot } = issueInvoiceStatements(
     {
       id: invoiceId,
       branchId,
@@ -941,6 +975,7 @@ async function finishMembershipSession(
     counter,
     insertInvoice,
     insertLines,
+    insertSnapshot,
     entry,
     // A completed session is a visit: recompute the CRM KPIs after it.
     refreshCustomerStatsStatement(customerId),
@@ -956,7 +991,7 @@ async function finishMembershipSession(
   return {
     ok: true as const,
     booking: (results.at(-2) as (typeof booking.$inferSelect)[])[0] as typeof booking.$inferSelect,
-    invoice: (results.at(-6) as (typeof invoice.$inferSelect)[])[0] as typeof invoice.$inferSelect,
+    invoice: (results.at(-7) as (typeof invoice.$inferSelect)[])[0] as typeof invoice.$inferSelect,
     remainingMinutes: freeMinutes(
       (results.at(-1) as { total: number; used: number; reserved: number }[])[0],
     ),

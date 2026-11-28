@@ -343,6 +343,17 @@ describe.skipIf(!LIVE)('offers at checkout against a live database', { timeout: 
       db.execute(
         sql`delete from invoice_item where invoice_id in (select id from invoice where customer_id like ${like})`,
       ),
+      db.execute(
+        sql`delete from invoice_issue_outbox where invoice_id in (select id from invoice where customer_id like ${like})`,
+      ),
+      db.execute(
+        sql`delete from invoice_payment_allocation where invoice_id in (select id from invoice where customer_id like ${like})`,
+      ),
+      db.execute(
+        sql`delete from customer_payment p using invoice i
+            where i.customer_id like ${like} and p.branch_id = i.branch_id
+              and p.source = 'service_checkout' and p.source_key in (i.id, i.id || ':2')`,
+      ),
       db.execute(sql`delete from invoice where customer_id like ${like}`),
       db.execute(sql`delete from offer_redemption where customer_id like ${like}`),
       db.execute(
@@ -396,6 +407,56 @@ describe.skipIf(!LIVE)('offers at checkout against a live database', { timeout: 
 
     const version = await taxVersion(BRANCH_A)
     const tax = splitFixtureTax(80_000, version.rate_bps)
+    await db.execute(sql`update "user" set name = 'ZZ Renamed after issue' where id = ${c}`)
+    const snapshots = await queryRows(sql`
+      select invoice_id, published_at, snapshot
+        from invoice_issue_outbox where snapshot ->> 'bookingId' = ${booked.id}`)
+    expect(snapshots).toHaveLength(1)
+    expect(snapshots[0]).toMatchObject({
+      invoice_id: done?.invoice?.id,
+      published_at: null,
+      snapshot: {
+        version: 1,
+        invoiceId: done?.invoice?.id,
+        bookingId: booked.id,
+        branchId: BRANCH_A,
+        invoice: {
+          templateVersion: 'takumi-v2',
+          invoiceNumber: done?.invoice?.invoiceNumber,
+          customer: { name: 'ZZ Offers IT records', email: `${c}@example.invalid` },
+          items: [
+            {
+              name: 'ZZ Offers IT service',
+              sacCode: '999721',
+              taxVersionId: version.id,
+              totalPricePaise: 100_000,
+              discountPaise: 20_000,
+              taxPaise: tax.taxPaise,
+            },
+          ],
+          totals: { subtotalPaise: 100_000, discountPaise: 20_000, totalPaise: 80_000 },
+        },
+      },
+    })
+    expect(
+      await queryRows(sql`
+      select p.branch_id, p.payment_method, p.amount_paise, p.payment_reference, p.recorded_by,
+             a.amount_paise as allocated_paise, p.received_at = i.paid_at as same_receipt_time
+      from invoice i join invoice_payment_allocation a on a.invoice_id = i.id
+      join customer_payment p on p.id = a.payment_id
+      where i.booking_id = ${booked.id}
+    `),
+    ).toEqual([
+      {
+        branch_id: BRANCH_A,
+        payment_method: 'cash',
+        amount_paise: 80_000,
+        payment_reference: null,
+        recorded_by: ACTOR,
+        allocated_paise: 80_000,
+        same_receipt_time: true,
+      },
+    ])
     expect(
       await queryRow(sql`
         select offer_id, offer_name_snapshot, offer_type_snapshot::text as offer_type_snapshot,
@@ -473,6 +534,10 @@ describe.skipIf(!LIVE)('offers at checkout against a live database', { timeout: 
       invoices: '0',
       redemptions: '1',
     })
+    expect(
+      await queryRows(sql`
+        select invoice_id from invoice_issue_outbox where snapshot ->> 'bookingId' = ${second.id}`),
+    ).toEqual([])
 
     // Nothing was left half-written: it completes without the offer.
     const done = await complete(second, null)

@@ -41,6 +41,8 @@ export interface JobSchedule {
   cron: string
   /** Human description incl. the IST intent. */
   description: string
+  /** May only be added by explicitly selecting the job. */
+  optIn?: true
 }
 
 // The QStash scheduled jobs (8 original + 6 migrated from pg_cron + 1 drift
@@ -200,5 +202,20 @@ export const JOB_SCHEDULES: readonly JobSchedule[] = [
     cron: '*/15 2-16 * * *',
     description:
       'Every 15 min, 07:30–22:15 IST — flag bookings held up because their person is still with another customer, and tell the branch (MS-08).',
+  },
+  {
+    key: 'invoice-staff-roster',
+    path: '/api/jobs/invoice-staff-roster',
+    cron: '*/15 * * * *',
+    description:
+      'Every 15 min — sync verified owner and manager assignments to the invoice portal.',
+    optIn: true,
+  },
+  {
+    key: 'invoice-outbox',
+    path: '/api/jobs/invoice-outbox',
+    cron: '*/15 * * * *',
+    description: 'Every 15 min — publish pending issued-invoice snapshots to the invoice portal.',
+    optIn: true,
   },
 ] as const

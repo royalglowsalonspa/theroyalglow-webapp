@@ -42,6 +42,7 @@ import {
   assertOfferSalonOnly,
   assertRedeemable,
   calculateGemsEarned,
+  formatINR,
   istToday,
 } from '@rgss/business'
 import {
@@ -62,6 +63,7 @@ import { type CompleteBookingInput, completeBookingSchema } from '@rgss/types'
 import { assertRenderedBranch, requireBranchRole } from '@/lib/api/branch-context'
 import { apiSuccess, withErrorHandler } from '@/lib/api/error-handler'
 import { invoiceTaxFor, serviceSacCodes } from '@/lib/api/invoice-tax'
+import { selectAutomaticInvoiceDelivery } from '@/lib/invoices/issue-event-transport'
 import { enqueueJob } from '@/lib/jobs/enqueue'
 import { publishBookingEvent } from '@/lib/realtime/publish'
 
@@ -254,6 +256,7 @@ export const POST = withErrorHandler(
     assertRenderedBranch(ctx, parsed.data.branchId)
     const {
       paymentMethod,
+      paymentTenders,
       offerId: offerIdRaw,
       gemsRedeemedServiceId: gemsServiceIdRaw,
       redeemGems,
@@ -277,9 +280,11 @@ export const POST = withErrorHandler(
     // A membership session is paid for with its minutes: completing it
     // consumes them and issues the ₹0 session invoice.
     if (existing.isMembershipSession) {
+      if (paymentTenders) throw badRequest('Membership sessions use prepaid minutes.')
       return completeSession(existing, session.user.id, parsed.data)
     }
-    if (!paymentMethod) {
+    const primaryPaymentMethod = paymentTenders?.[0].method ?? paymentMethod
+    if (!primaryPaymentMethod) {
       throw badRequest('Invalid request data', { paymentMethod: ['Choose how the customer paid.'] })
     }
     if (!COMPLETABLE_STATUSES.has(existing.status)) {
@@ -424,6 +429,14 @@ export const POST = withErrorHandler(
       ...(discountableLines ? { discountableLines } : {}),
     })
     const totals = tax.totals
+    if (
+      paymentTenders &&
+      paymentTenders[0].amountPaise + paymentTenders[1].amountPaise !== totals.netPaise
+    ) {
+      throw badRequest(
+        `Payments must add up to the current total of ${formatINR(totals.netPaise)}.`,
+      )
+    }
     // Gems EARNED: floor of rupees on what was paid, 0 for a membership
     // session (Req 12.3, 12.4).
     const gemsEarned = calculateGemsEarned(totals.netPaise, existing.isMembershipSession)
@@ -442,6 +455,11 @@ export const POST = withErrorHandler(
     // settings are a 409, never a guess.
     const settlement = await getSettlementSetting()
 
+    const automaticDelivery =
+      tax.taxReviewStatus === 'reviewed'
+        ? selectAutomaticInvoiceDelivery(existing.branchId, tax.taxPointAt, existing.customerEmail)
+        : undefined
+
     // Persist atomically (Req 12.1): booking → completed + the next invoice
     // number + the invoice with its issuer and tax facts + gems + status log in
     // a single db.batch(). The query layer only persists the values given here.
@@ -451,11 +469,13 @@ export const POST = withErrorHandler(
       expectedStatus: existing.status,
       expectedAssignments: existing.services.map(({ id, staffId }) => ({ id, staffId })),
       settlement,
+      ...(automaticDelivery ? { automaticDelivery } : {}),
+      ...(paymentTenders ? { paymentTenders } : {}),
       invoice: {
         branchId: existing.branchId,
         customerId: existing.customerId,
         invoiceType: 'service',
-        paymentMethod,
+        paymentMethod: primaryPaymentMethod,
         subtotalPaise: totals.grossPaise,
         discountAmountPaise: totals.discountPaise,
         taxableValuePaise: totals.taxablePaise,
@@ -512,12 +532,8 @@ export const POST = withErrorHandler(
       throw notFound('Booking not found.')
     }
 
-    // Best-effort: durably enqueue the invoice-pdf job (runs on apps/web). It
-    // renders the GST invoice PDF via the Cloud Run service and emails the
-    // customer their invoice WITH the PDF attached — so the invoice email now
-    // originates from the job, not inline here. enqueueJob never throws and
-    // no-ops without QSTASH_TOKEN, so this can never break completion or change
-    // its response (same contract as the post-service-followup enqueue below).
+    // Keep the PDF available in Admin for every service invoice. The job reads
+    // the saved delivery owner before attempting any legacy email.
     if (result.invoice) {
       await enqueueJob('/api/jobs/invoice-pdf', { invoiceId: result.invoice.id }, 0)
     }

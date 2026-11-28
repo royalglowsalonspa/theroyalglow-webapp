@@ -20,7 +20,7 @@ orientation without maintaining a second copy of the same development policy.
 | Customer pages, booking UX, customer APIs | [Web guide](apps/web/CLAUDE.md) |
 | Operations, staff access, administrative APIs, jobs | [Admin guide](apps/admin/CLAUDE.md) |
 | Content, media, service authoring, Payload schema | [CMS guide](apps/cms/CLAUDE.md) |
-| Invoice PDF requests, rendering, object storage | [Invoicing guide](apps/invoicing/CLAUDE.md) |
+| Invoice PDF requests, rendering, object storage | [Invoicing guide](apps/invoice/CLAUDE.md) |
 
 For shared behavior, trace the caller into `packages/types`, `packages/business`,
 and `packages/db` before choosing where to edit. Use the commands and validation

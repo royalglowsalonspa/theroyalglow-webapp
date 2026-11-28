@@ -222,6 +222,22 @@ accepts the same comma-separated scope through its `jobs` input. QStash must be 
 to reach the configured admin origin. Definitions removed from the array are never
 automatically deleted by this script.
 
+The optional `invoice-staff-roster` job publishes current branch owner and manager
+assignments to the Cloudflare invoice portal every 15 minutes. It requires
+`INVOICE_ROSTER_URL` with the full HTTPS `/internal/v1/staff-roster` endpoint,
+`INVOICE_ROSTER_SOURCE` matching the Worker billing source,
+`INVOICE_ROSTER_SECRET`, and the path-scoped service token in
+`INVOICE_ROSTER_ACCESS_CLIENT_ID` and `INVOICE_ROSTER_ACCESS_CLIENT_SECRET`.
+The publisher does no work until the URL is set. Preview this opt-in schedule
+with `bun run register-schedules --dry --jobs invoice-staff-roster`; apply it
+with the same scope after staged delivery succeeds and QStash capacity is
+confirmed. [Invoice portal staging setup](../invoice/README.md#hosted-staging-setup).
+
+The optional `invoice-outbox` job publishes newly issued invoice snapshots to the
+Worker every 15 minutes. It needs the `INVOICE_EVENTS_*` configuration and the
+reviewed Neon migrations. The publisher omits email delivery requests while the
+portal is in shadow mode. [Publisher setup](../invoice/README.md#publish-checkout-snapshots).
+
 Job handlers preserve per-operation idempotency/deduplication for retries.
 Publishing and heartbeats are best-effort. Catalogue drift reconciliation reports
 differences between CMS and the public catalogue without repairing data; the

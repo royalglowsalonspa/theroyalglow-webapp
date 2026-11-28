@@ -24,7 +24,7 @@ already given in the conversation; these files do not add a separate approval pr
 | `apps/web` | Customer site, booking dialog, account flows, public APIs | [Web](apps/web/AGENTS.md) |
 | `apps/admin` | Staff/operations portal, administrative APIs, signed jobs | [Admin](apps/admin/AGENTS.md) |
 | `apps/cms` | Payload content and service catalogue authoring | [CMS](apps/cms/AGENTS.md) |
-| `apps/invoicing` | Signed invoice PDF rendering and R2 storage | [Invoicing](apps/invoicing/AGENTS.md) |
+| `apps/invoice` | Cloudflare invoice portal and signed Node PDF renderer | [Invoice](apps/invoice/AGENTS.md) |
 | `packages/types/src` | Shared Zod contracts and TypeScript types | Keep independent of apps |
 | `packages/business/src` | Domain calculations and rules | Keep free of DB/framework I/O |
 | `packages/db/src` | Drizzle schema, queries, data access | Keep business calculations outside queries |
@@ -111,8 +111,9 @@ Use the versions in manifests instead of upgrading unrelated tools to latest.
   PRs or cherry-pick/reword commits to move them between environments.
 - Production dispatch uses the workflow's maintainer confirmation input. A Git
   promotion does not itself prove database migration or every app deployment succeeded.
-- Web/admin run on AWS through `sst.config.ts`; CMS uses `infra/render/render.yaml`; invoicing
-  targets Cloud Run. Cloudflare provides DNS/R2, not application compute.
+- Web and Admin run on AWS through `sst.config.ts` and CMS uses `infra/render/render.yaml`.
+  The invoice portal runs on Cloudflare Workers. The signed checkout renderer retains
+  its Cloud Run deployment path until the invoicing rollout is verified.
 - Describe the problem, resulting behavior, validation, and material limitations
   in commit/PR summaries. Use meaningful Conventional Commit subjects for retained history.
 - Issue titles describe the problem; priority/severity belong in labels. Use

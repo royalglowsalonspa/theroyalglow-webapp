@@ -142,7 +142,7 @@
     {
       "description": "Only the active Cloud Run invoicing Dockerfile receives image updates.",
       "matchManagers": ["dockerfile"],
-      "matchFileNames": ["apps/invoicing/Dockerfile"],
+      "matchFileNames": ["apps/invoice/Dockerfile"],
       "enabled": true
     },
     {

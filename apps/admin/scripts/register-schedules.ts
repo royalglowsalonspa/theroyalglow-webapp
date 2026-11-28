@@ -37,7 +37,7 @@ function selectJobs(args: string[]) {
     throw new ScheduleRegistrationError('Use register-schedules [--dry] [--jobs key1,key2]')
   }
   const dry = parsed.dry ?? false
-  if (!parsed.jobs) return { jobs: JOB_SCHEDULES, dry, scoped: false }
+  if (!parsed.jobs) return { jobs: JOB_SCHEDULES.filter(({ optIn }) => !optIn), dry, scoped: false }
 
   const keys = parsed.jobs[0]?.split(',').map((key) => key.trim()) ?? []
   const jobs = JOB_SCHEDULES.filter(({ key }) => keys.includes(key))
