@@ -41,7 +41,18 @@
  ************************************************************/
 
 import { sql } from 'drizzle-orm'
-import { check, index, integer, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+import {
+  check,
+  foreignKey,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core'
 import { nanoid } from 'nanoid'
 import { user } from './auth'
 import { booking } from './booking'
@@ -121,6 +132,7 @@ export const invoice = pgTable(
   (table) => [
     index('invoice_customer_id_idx').on(table.customerId),
     index('invoice_branch_id_idx').on(table.branchId),
+    uniqueIndex('invoice_id_branch_uidx').on(table.id, table.branchId),
     index('invoice_paid_at_idx').on(table.paidAt).where(sql`payment_status = 'paid'`),
     // A booking is billed once: a retried completion can't issue a second invoice.
     uniqueIndex('invoice_booking_id_uidx').on(table.bookingId).where(sql`booking_id IS NOT NULL`),
@@ -152,6 +164,85 @@ export const invoice = pgTable(
         AND char_length(${table.invoiceNumber}) <= 16
       )`,
     ),
+  ],
+)
+
+export const customerPayment = pgTable(
+  'customer_payment',
+  {
+    id: text('id').primaryKey(),
+    branchId: text('branch_id')
+      .notNull()
+      .references(() => branch.id, { onDelete: 'restrict' }),
+    paymentMethod: paymentMethodEnum('payment_method').notNull(),
+    amountPaise: integer('amount_paise').notNull(),
+    receivedAt: timestamp('received_at', { withTimezone: true, mode: 'date' }).notNull(),
+    paymentReference: text('payment_reference'),
+    recordedBy: text('recorded_by')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    source: text('source').notNull(),
+    sourceKey: text('source_key').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('customer_payment_id_branch_uidx').on(table.id, table.branchId),
+    uniqueIndex('customer_payment_source_uidx').on(table.source, table.sourceKey),
+    index('customer_payment_branch_received_idx').on(table.branchId, table.receivedAt),
+    check('customer_payment_amount_check', sql`${table.amountPaise} > 0`),
+    check('customer_payment_source_check', sql`${table.source} = 'service_checkout'`),
+  ],
+)
+
+export const invoicePaymentAllocation = pgTable(
+  'invoice_payment_allocation',
+  {
+    paymentId: text('payment_id').notNull(),
+    invoiceId: text('invoice_id').notNull(),
+    branchId: text('branch_id').notNull(),
+    amountPaise: integer('amount_paise').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.paymentId, table.invoiceId] }),
+    foreignKey({
+      name: 'invoice_payment_allocation_payment_branch_fk',
+      columns: [table.paymentId, table.branchId],
+      foreignColumns: [customerPayment.id, customerPayment.branchId],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'invoice_payment_allocation_invoice_branch_fk',
+      columns: [table.invoiceId, table.branchId],
+      foreignColumns: [invoice.id, invoice.branchId],
+    }).onDelete('restrict'),
+    index('invoice_payment_allocation_invoice_idx').on(table.invoiceId),
+    check('invoice_payment_allocation_amount_check', sql`${table.amountPaise} > 0`),
+  ],
+)
+
+export const invoiceIssueOutbox = pgTable(
+  'invoice_issue_outbox',
+  {
+    invoiceId: text('invoice_id')
+      .primaryKey()
+      .references(() => invoice.id, { onDelete: 'restrict' }),
+    snapshot: jsonb('snapshot').notNull(),
+    capturedAt: timestamp('captured_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    // While leased, readiness is the lease expiry. Otherwise it is the next retry.
+    readyAt: timestamp('ready_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    leaseToken: text('lease_token'),
+    attempts: integer('attempts').notNull().default(0),
+    // Keep the signed request body byte-stable for the Worker's replay checks.
+    eventBody: text('event_body'),
+    publishedAt: timestamp('published_at', { withTimezone: true, mode: 'date' }),
+    failedAt: timestamp('failed_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    index('invoice_issue_outbox_pending_idx')
+      .on(table.readyAt, table.capturedAt, table.invoiceId)
+      .where(sql`${table.publishedAt} IS NULL AND ${table.failedAt} IS NULL`),
   ],
 )
 

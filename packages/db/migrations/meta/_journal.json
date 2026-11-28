@@ -316,6 +316,13 @@
       "when": 1795631639209,
       "tag": "0044_push_subscription_binding",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1795863502976,
+      "tag": "0045_invoice_outbox_and_checkout_payments",
+      "breakpoints": true
     }
   ]
 }
