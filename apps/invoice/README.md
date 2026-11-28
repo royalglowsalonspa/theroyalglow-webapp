@@ -20,6 +20,8 @@ An invoice with no saved line facts has one `missing` row with blank line fields
 
 Apply D1 migration `0011_invoice_line_tax.sql` before deploying this Worker. The export uses the existing Durable Object, with a limit of 2,000 invoices and 5,000 rows per download. The audit records the invoice total once per invoice, line and missing-fact counts, and the latest line projection receipt in the selection. Exact signed replay can fill missing line facts while preserving previously saved values and email history.
 
+A local 31-day rehearsal at 50 invoices a day in one branch exported all 1,550 invoices and 4,650 lines at three lines per invoice. At four lines per invoice, the same branch month exceeded 5,000 lines. The Worker rejected the export before issuing a CSV or audit receipt.
+
 ### Review monthly GST
 
 Select a month and branch on the dashboard and choose **Review monthly GST**. Opening the report directly defaults to the previous IST month. Owners, managers, and accountants see only their assigned branches. The report separates reviewed and provisional GST and groups saved amounts by issuing branch, issuer GSTIN, SAC, and rate. Zero-value membership usage is shown as a count.
@@ -110,6 +112,8 @@ On 2026-11-28, the isolated `rgss-invoice-rehearsal` Neon project applied all 46
 Verify the production Google-only Access application for `invoice.theroyalglow.in`, the private `rgss-invoices` bucket, the `rgss-invoice-production` D1 database, and the hostname's routing in the Royal Glow account. Use the production application's Access audience and exact bootstrap Gmail. Set `INVOICE_PRODUCTION_ACCOUNT_ID`, `INVOICE_PRODUCTION_D1_ID`, `INVOICE_PRODUCTION_ACCESS_TEAM`, `INVOICE_PRODUCTION_ACCESS_AUDIENCE`, and `INVOICE_PRODUCTION_DEVELOPER_EMAIL`.
 
 Run `bun run --filter @rgss/invoice configure:production` with a Royal Glow Wrangler profile that can read D1 metadata. It verifies the D1 name and ID and writes the ignored `apps/invoice/wrangler.production.local.json`. The generated config disables email, Access policy sync, previews, and `workers.dev`. It uses the billing source `production`. Use that same source for the production Admin invoice and staff roster publishers when they are ready.
+
+For the production AWS Admin deploy, set `INVOICE_EVENTS_URL=https://invoice.theroyalglow.in/internal/v1/invoice-events` and `INVOICE_EVENTS_SOURCE=production` together. Set `INVOICE_ROSTER_URL=https://invoice.theroyalglow.in/internal/v1/staff-roster` and `INVOICE_ROSTER_SOURCE=production` together. Leave both settings for each publisher unset until that route is ready. SST rejects a partial pair or a different target before creating resources.
 
 From `apps/invoice`, inspect the bindings with `bun run wrangler deploy --dry-run --config wrangler.production.local.json`. Use stage-specific Worker secrets and service credentials. Follow the [launch checks](../../design/invoicing-modernization-plan.md#launch-checks-for-each-increment) before applying migrations or attaching the hostname.
 

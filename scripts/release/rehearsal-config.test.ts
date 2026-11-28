@@ -110,10 +110,10 @@ it('uses independent rehearsal settings and preserves production domains and sec
   for (const [name, value] of Object.entries(inputs)) vi.stubEnv(name, value)
   vi.stubEnv('DATABASE_URL_UNPOOLED', 'postgresql://production.invalid/db')
   vi.stubEnv('INVOICE_ROSTER_URL', 'https://invoice.theroyalglow.in/internal/v1/staff-roster')
-  vi.stubEnv('INVOICE_ROSTER_SOURCE', 'prod')
+  vi.stubEnv('INVOICE_ROSTER_SOURCE', 'production')
   vi.stubEnv('REHEARSAL_INVOICE_ROSTER_ORIGIN', `${invoiceStagingOrigin}/`)
   vi.stubEnv('INVOICE_EVENTS_URL', 'https://invoice.theroyalglow.in/internal/v1/invoice-events')
-  vi.stubEnv('INVOICE_EVENTS_SOURCE', 'prod')
+  vi.stubEnv('INVOICE_EVENTS_SOURCE', 'production')
   vi.stubEnv('REHEARSAL_INVOICE_EVENTS_ORIGIN', invoiceStagingOrigin)
   vi.stubEnv('REHEARSAL_INVOICE_AUTOMATIC_EMAIL_BRANCH_ID', 'branch-fixture')
   vi.stubEnv('REHEARSAL_INVOICE_AUTOMATIC_EMAIL_START_AT', '2026-11-30T18:30:00Z')
@@ -221,10 +221,10 @@ it('uses independent rehearsal settings and preserves production domains and sec
       BETTER_AUTH_URL: 'https://admin.theroyalglow.in',
       QSTASH_URL: 'https://qstash-us-east-1.upstash.io',
       INVOICE_ROSTER_URL: 'https://invoice.theroyalglow.in/internal/v1/staff-roster',
-      INVOICE_ROSTER_SOURCE: 'prod',
+      INVOICE_ROSTER_SOURCE: 'production',
       INVOICE_ROSTER_SECRET: 'synthetic',
       INVOICE_EVENTS_URL: 'https://invoice.theroyalglow.in/internal/v1/invoice-events',
-      INVOICE_EVENTS_SOURCE: 'prod',
+      INVOICE_EVENTS_SOURCE: 'production',
       INVOICE_EVENTS_SECRET: 'synthetic',
       INVOICE_EVENTS_ACCESS_CLIENT_ID: 'synthetic',
       INVOICE_EVENTS_ACCESS_CLIENT_SECRET: 'synthetic',
@@ -244,6 +244,8 @@ it('uses independent rehearsal settings and preserves production domains and sec
 
   vi.stubGlobal('$app', { stage: 'production' })
   vi.stubEnv('INVOICE_ROSTER_URL', undefined)
+  vi.stubEnv('INVOICE_ROSTER_SOURCE', undefined)
+  vi.stubEnv('INVOICE_EVENTS_URL', undefined)
   vi.stubEnv('INVOICE_EVENTS_SOURCE', undefined)
   secrets.clear()
   await sstConfig.run?.()
@@ -251,6 +253,35 @@ it('uses independent rehearsal settings and preserves production domains and sec
   expect(secrets).not.toContain('InvoiceRosterSecret')
   expect(sites.get('Admin')).not.toHaveProperty('environment.INVOICE_EVENTS_URL')
   expect(secrets).not.toContain('InvoiceEventsSecret')
+
+  dns.mockClear()
+  sites.clear()
+  secrets.clear()
+  for (const [publisher, path] of [
+    ['ROSTER', '/internal/v1/staff-roster'],
+    ['EVENTS', '/internal/v1/invoice-events'],
+  ]) {
+    const urlName = `INVOICE_${publisher}_URL`
+    const sourceName = `INVOICE_${publisher}_SOURCE`
+    const productionUrl = `https://invoice.theroyalglow.in${path}`
+    const invalidPairs = [
+      [productionUrl, undefined],
+      [undefined, 'production'],
+      [productionUrl, 'staging'],
+      [`${invoiceStagingOrigin}${path}`, 'staging'],
+      [`https://invoice.staging.example.com${path}`, 'production'],
+    ] as const
+    for (const [url, source] of invalidPairs) {
+      vi.stubEnv(urlName, url)
+      vi.stubEnv(sourceName, source)
+      await expect(sstConfig.run?.()).rejects.toThrow(`${urlName} and ${sourceName}`)
+    }
+    vi.stubEnv(urlName, undefined)
+    vi.stubEnv(sourceName, undefined)
+  }
+  expect(dns).not.toHaveBeenCalled()
+  expect(sites.size).toBe(0)
+  expect(secrets.size).toBe(0)
 
   vi.stubEnv('QSTASH_URL', 'https://provider.example.com')
   await expect(sstConfig.run?.()).rejects.toThrow('Upstash QStash HTTPS origin')

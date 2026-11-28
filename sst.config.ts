@@ -69,6 +69,26 @@ export default $config({
         ? process.env.INVOICE_EVENTS_URL?.trim()
         : undefined
     const invoiceEventsSource = rehearsal ? 'staging' : process.env.INVOICE_EVENTS_SOURCE?.trim()
+    if (isProd) {
+      if (
+        (invoiceRosterUrl || invoiceRosterSource) &&
+        (invoiceRosterUrl !== 'https://invoice.theroyalglow.in/internal/v1/staff-roster' ||
+          invoiceRosterSource !== 'production')
+      ) {
+        throw new Error(
+          'Set INVOICE_ROSTER_URL and INVOICE_ROSTER_SOURCE to the production invoice roster endpoint and source, or leave both unset.',
+        )
+      }
+      if (
+        (invoiceEventsUrl || invoiceEventsSource) &&
+        (invoiceEventsUrl !== 'https://invoice.theroyalglow.in/internal/v1/invoice-events' ||
+          invoiceEventsSource !== 'production')
+      ) {
+        throw new Error(
+          'Set INVOICE_EVENTS_URL and INVOICE_EVENTS_SOURCE to the production invoice event endpoint and source, or leave both unset.',
+        )
+      }
+    }
     const deliveryPrefix = rehearsal ? 'REHEARSAL_' : isProd ? '' : undefined
     const deliveryBranch =
       deliveryPrefix === undefined
