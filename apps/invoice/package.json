@@ -15,7 +15,7 @@
     "build:node": "tsup",
     "dev:node": "tsup --watch --onSuccess \"node dist/node/index.js\"",
     "start": "node dist/node/index.js",
-    "types": "wrangler types .wrangler/worker-configuration.d.ts",
+    "types": "node -e \"require('node:fs').mkdirSync('.wrangler', { recursive: true })\" && wrangler types .wrangler/worker-configuration.d.ts",
     "typecheck": "bun run types && tsc --noEmit && tsc --project tsconfig.node.json",
     "lint": "biome check src test scripts wrangler.jsonc",
     "test:runtime": "node --test test/runtime.test.mjs"

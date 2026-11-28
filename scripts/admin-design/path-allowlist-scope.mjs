@@ -1,6 +1,6 @@
 const REDESIGN_SPEC = '.kiro/specs/admin-portal-redesign/'
 const REDESIGN_REF = /(?:^|[/-])admin-(?:(?:portal-)?redesign|design-system)(?:$|[/-])/
-const FEATURE_REF = /^feat\/([a-z0-9]+(?:-[a-z0-9]+)*)$/
+const FEATURE_REF = /^(?:feat|codex)\/([a-z0-9]+(?:-[a-z0-9]+)*)$/
 
 /** Preserve the strict boundary unless a pull request declares a matching feature spec. */
 export function classifyAdminChange(headRef, changedFiles, isPresent) {
