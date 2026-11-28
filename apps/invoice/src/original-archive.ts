@@ -1,3 +1,4 @@
+import { hasCompleteInvoicePdf } from '@rgss/business'
 import {
   INVOICE_ORIGINAL_ARCHIVE_MAX_BYTES,
   INVOICE_ORIGINAL_PDF_MAX_BYTES,
@@ -20,8 +21,7 @@ function objectKey(id: string, sha256: string) {
 function pdfBytes(base64: string): Uint8Array<ArrayBuffer> | null {
   try {
     const bytes = Uint8Array.fromBase64(base64, { lastChunkHandling: 'strict' })
-    return bytes.length <= INVOICE_ORIGINAL_PDF_MAX_BYTES &&
-      new TextDecoder().decode(bytes.subarray(0, 5)) === '%PDF-'
+    return bytes.length <= INVOICE_ORIGINAL_PDF_MAX_BYTES && hasCompleteInvoicePdf(bytes)
       ? bytes
       : null
   } catch {
@@ -33,7 +33,9 @@ async function verifiedPdf(files: R2Bucket, id: string, sha256: string, size: nu
   const object = await files.get(objectKey(id, sha256))
   if (!object || object.size !== size || size > INVOICE_ORIGINAL_PDF_MAX_BYTES) return null
   const bytes = await object.arrayBuffer()
-  return (await snapshotHash(bytes)) === sha256 ? bytes : null
+  return hasCompleteInvoicePdf(new Uint8Array(bytes)) && (await snapshotHash(bytes)) === sha256
+    ? bytes
+    : null
 }
 
 export async function archiveOriginal(request: Request, env: InvoiceEnv): Promise<Response> {

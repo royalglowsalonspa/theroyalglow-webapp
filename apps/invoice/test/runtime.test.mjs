@@ -3842,7 +3842,9 @@ async function exerciseInvoiceWorker(t, legacyResendEnabled) {
       async () => {
         const path = '/internal/v1/invoice-events/archive-original'
         const id = 'legacy-archived-fixture'
-        const pdf = Buffer.from('%PDF-1.7\noriginal archival fixture')
+        const rendered = await call(`/portal/invoices/${event.invoiceId}/pdf`, { headers: owner })
+        assert.equal(rendered.status, 200)
+        const pdf = Buffer.from(await rendered.arrayBuffer())
         const sha256 = createHash('sha256').update(pdf).digest('hex')
         const key = `original-archive/${id}/${sha256}.pdf`
         const archive = {
@@ -3869,6 +3871,14 @@ async function exerciseInvoiceWorker(t, legacyResendEnabled) {
             .status,
           422,
         )
+        assert.equal(
+          (await submit({ ...archive, pdfBase64: pdf.subarray(0, -16).toString('base64') })).status,
+          422,
+        )
+        assert.equal(
+          await db.prepare('SELECT 1 FROM original_invoice_archive WHERE id = ?').bind(id).first(),
+          null,
+        )
         assert.equal((await submit({ ...archive, invoiceId: event.invoiceId })).status, 409)
         assert.equal(
           (await submit({ ...archive, invoiceNumber: event.invoice.invoiceNumber })).status,
@@ -3891,7 +3901,7 @@ async function exerciseInvoiceWorker(t, legacyResendEnabled) {
           (
             await submit({
               ...archive,
-              pdfBase64: Buffer.from('%PDF-1.7\nnew bytes').toString('base64'),
+              pdfBase64: Buffer.concat([pdf, Buffer.from('\n')]).toString('base64'),
             })
           ).status,
           409,

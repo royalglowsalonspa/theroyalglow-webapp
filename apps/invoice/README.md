@@ -187,7 +187,7 @@ Apply D1 migration `0028_original_invoice_archive.sql`, deploy the matching Work
 {"report":"archive_original","branchId":"branch-1","invoiceId":"invoice-42","reason":"Verified historical record"}
 ```
 
-Admin requests the existing PDF from the configured legacy renderer's signed download route. It uses the stored number and date to resolve the renderer's object key and rejects collisions in the normalized key for that UTC year. The renderer reads its existing storage. If its saved PDF is available and no larger than 1 MiB, the Worker keeps an integrity-checked copy under `original-archive/` in private R2. The Admin audit records the selected invoice, branch and reason. Replaying the same request verifies the copy and can repair a missing object.
+Admin requests the existing PDF from the configured legacy renderer's signed download route. It uses the stored number and date to resolve the renderer's object key and rejects collisions in the normalized key for that UTC year. The renderer reads its existing storage. Admin and the Worker require the PDF header and end-of-file trailer and enforce a 1 MiB limit. The Worker keeps an integrity-checked copy under `original-archive/` in private R2. The Admin audit records the selected invoice, branch and reason. Replaying the same request verifies the copy and can repair a missing object.
 
 In staging, a real synthetic PDF from the Node renderer returned HTTP 201 on archive and 204 on exact replay. The Worker rejected the same invoice with changed facts, and rejected an unregistered branch or an issued invoice ID. D1 recorded one matching archive, zero issued invoices and zero email operations. Cloudflare Access denied the anonymous download.
 

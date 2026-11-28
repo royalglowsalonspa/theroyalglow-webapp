@@ -1,3 +1,4 @@
+import { hasCompleteInvoicePdf } from '@rgss/business'
 import { readOriginalInvoiceArchiveCandidate } from '@rgss/db/queries'
 import { AppError, conflict, ERROR_CODES, notFound, serviceUnavailable } from '@rgss/errors'
 import {
@@ -56,7 +57,7 @@ async function readOriginalPdf(response: Response) {
   } finally {
     reader.releaseLock()
   }
-  if (size < 5 || bytes.toString('ascii', 0, 5) !== '%PDF-') throw invalidPdf()
+  if (!hasCompleteInvoicePdf(bytes.subarray(0, size))) throw invalidPdf()
   return bytes.toString('base64', 0, size)
 }
 

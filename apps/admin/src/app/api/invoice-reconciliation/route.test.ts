@@ -138,7 +138,7 @@ const archiveRequest = () =>
 
 it('archives the stored original from the configured renderer and signs the exact PDF bytes', async () => {
   mocks.readOriginalInvoiceArchiveCandidate.mockResolvedValue(archiveCandidate)
-  const bytes = Buffer.from('%PDF-1.7\noriginal fixture\n')
+  const bytes = Buffer.from('%PDF-1.7\noriginal fixture\nstartxref\n9\n%%EOF\n')
   fetchInvoice.mockResolvedValueOnce(
     new Response(bytes, { headers: { 'content-type': 'application/pdf' } }),
   )
@@ -190,7 +190,7 @@ it('archives the stored original from the configured renderer and signs the exac
   )
 })
 
-it('skips archives with missing, mismatched or oversized originals', async () => {
+it('skips archives with missing, mismatched, oversized or truncated originals', async () => {
   expect((await POST(archiveRequest())).status).toBe(404)
   mocks.readOriginalInvoiceArchiveCandidate.mockResolvedValueOnce({
     ...archiveCandidate,
@@ -214,7 +214,13 @@ it('skips archives with missing, mismatched or oversized originals', async () =>
     }),
   )
   expect((await POST(archiveRequest())).status).toBe(422)
-  expect(fetchInvoice).toHaveBeenCalledTimes(3)
+  fetchInvoice.mockResolvedValueOnce(
+    new Response('%PDF-1.7\ntruncated fixture', {
+      headers: { 'content-type': 'application/pdf' },
+    }),
+  )
+  expect((await POST(archiveRequest())).status).toBe(422)
+  expect(fetchInvoice).toHaveBeenCalledTimes(4)
   expect(mocks.audit).not.toHaveBeenCalled()
 })
 
