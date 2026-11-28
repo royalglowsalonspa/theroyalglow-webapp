@@ -32,6 +32,7 @@
  * - All *Paise fields are non-negative integers (invoices are never negative).
  ************************************************************/
 import { z } from 'zod'
+import { splitCheckoutTendersSchema } from './checkout-payment'
 
 const paise = z.number().int().nonnegative()
 
@@ -90,7 +91,7 @@ const invoiceTotalsSchema = z.object({
   totalPaise: paise,
 })
 
-export const invoicePdfPayloadSchema = z.object({
+export const invoicePdfFieldsSchema = z.object({
   // Layout version that rendered this invoice (reproducibility/audit).
   templateVersion: z.string().min(1).default('v1'),
 
@@ -98,6 +99,7 @@ export const invoicePdfPayloadSchema = z.object({
   // ISO-8601 instant of issue (the tax point); formatted DD/MM/YYYY in IST.
   issuedAt: z.string().datetime(),
   paymentMethod: z.enum(['cash', 'upi', 'card', 'online']),
+  paymentTenders: splitCheckoutTendersSchema.optional(),
   bookingNumber: z.string().min(1).nullish(),
   // Issued with provisional (unreviewed) rates: printed as a test invoice
   // (multi-branch TX-10). Absent on invoices issued before the review status.
@@ -118,10 +120,37 @@ export const invoicePdfPayloadSchema = z.object({
   notes: z.string().max(500).nullish(),
 })
 
+export const invoicePaymentCheck = {
+  path: ['paymentTenders'],
+  message: 'Split tender must match the saved service invoice total.',
+}
+
+export function invoicePaymentMatches({
+  paymentTenders,
+  paymentMethod,
+  invoiceType,
+  totals,
+}: Pick<
+  z.infer<typeof invoicePdfFieldsSchema>,
+  'paymentTenders' | 'paymentMethod' | 'invoiceType' | 'totals'
+>): boolean {
+  return (
+    !paymentTenders ||
+    (invoiceType === 'service' &&
+      paymentMethod === paymentTenders[0].method &&
+      paymentTenders[0].amountPaise + paymentTenders[1].amountPaise === totals.totalPaise)
+  )
+}
+
+export const invoicePdfPayloadSchema = invoicePdfFieldsSchema.refine(
+  invoicePaymentMatches,
+  invoicePaymentCheck,
+)
+
 export type InvoicePdfPayload = z.infer<typeof invoicePdfPayloadSchema>
 
 /** Enough stored invoice facts to locate a rendered PDF. */
-export const invoicePdfDownloadSchema = invoicePdfPayloadSchema
+export const invoicePdfDownloadSchema = invoicePdfFieldsSchema
   .pick({ invoiceNumber: true, issuedAt: true })
   .strict()
 

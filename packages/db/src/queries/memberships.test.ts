@@ -108,6 +108,7 @@ import { invoiceSequence } from '../schema/tax'
 import {
   completeMembershipSession,
   createMembershipWithInvoice,
+  getBranchMembershipBalances,
   getMembershipSessionByKey,
   recordMembershipSession,
 } from './memberships'
@@ -218,7 +219,7 @@ function recordResult(total: number, used: number, reserved: number) {
   return [[BOOKING_ROW], {}, {}, [{ total, used, reserved }]]
 }
 
-// Complete: guard, status log, counter, invoice, items, entry, KPIs, booking,
+// Complete: guard, status log, counter, invoice, items, snapshot, entry, KPIs, booking,
 // balance.
 function completeResult(total: number, used: number, reserved: number) {
   return [
@@ -226,6 +227,7 @@ function completeResult(total: number, used: number, reserved: number) {
     {},
     {},
     [INVOICE_ROW],
+    {},
     {},
     {},
     {},
@@ -237,6 +239,45 @@ function completeResult(total: number, used: number, reserved: number) {
 beforeEach(() => {
   fake.reset()
   fake.state.batchResult = recordResult(600, 210, 90)
+})
+
+describe('getBranchMembershipBalances', () => {
+  const observed = new Date('2026-11-28T18:29:59.123Z')
+  const branch = 'branch_rayasandra'
+  const totals = {
+    activeCount: 2,
+    purchasedMinutes: 90,
+    usedMinutes: 20,
+    heldMinutes: 15,
+    availableMinutes: 55,
+    expiringAvailableMinutes: 35,
+  }
+
+  it('selects only branch balance totals with inclusive validity and expiry bounds', async () => {
+    fake.state.awaitQueue.push([totals])
+    expect(await getBranchMembershipBalances(branch, observed)).toEqual(totals)
+
+    expect(fake.records).toHaveLength(1)
+    const select = fake.records[0]
+    expect(argOf(select, 'from')).toBe(spaMembership)
+    const fields = select?.args[0] as Record<keyof typeof totals, SQL>
+    expect(Object.keys(fields)).toEqual(Object.keys(totals))
+    expect(render(argOf(select, 'where'))).toEqual({
+      sql: '(coalesce("spa_membership"."selling_branch_id", (select "invoice"."branch_id" from "invoice" where "invoice"."id" = "spa_membership"."invoice_id")) = $1 and "spa_membership"."status" = $2 and "spa_membership"."starts_at" <= $3 and "spa_membership"."expires_at" >= $4)',
+      params: [branch, 'active', observed.toISOString(), observed.toISOString()],
+    })
+    expect(render(fields.expiringAvailableMinutes)).toEqual({
+      sql: 'coalesce(sum("spa_membership"."total_hours_minutes" - "spa_membership"."used_hours_minutes" - "spa_membership"."reserved_minutes") filter (where "spa_membership"."expires_at" <= $1), 0)',
+      params: ['2026-12-28T18:29:59.123Z'],
+    })
+  })
+
+  it('rejects unsafe totals rather than returning rounded minutes', async () => {
+    fake.state.awaitQueue.push([{ ...totals, purchasedMinutes: Number.MAX_SAFE_INTEGER + 1 }])
+    await expect(getBranchMembershipBalances(branch, observed)).rejects.toThrow(
+      'Invalid membership balance totals',
+    )
+  })
 })
 
 describe('createMembershipWithInvoice', () => {
@@ -414,6 +455,7 @@ describe('completeMembershipSession', () => {
       'insert',
       'execute',
       'execute',
+      'execute',
       'select',
       'select',
     ])
@@ -421,6 +463,7 @@ describe('completeMembershipSession', () => {
     expect(statements[2]?.args[0]).toBe(invoiceSequence)
     expect(statements[3]?.args[0]).toBe(invoice)
     expect(statements[4]?.args[0]).toBe(invoiceItem)
+    expect(render(statements[5]?.args[0]).sql).toContain('INSERT INTO invoice_issue_outbox')
   })
 
   it('moves only an in-progress session of the branch, aborting otherwise', async () => {
@@ -468,7 +511,7 @@ describe('completeMembershipSession', () => {
   it('values the settlement entry from the minutes used after this consumption (MS-20, MS-23)', async () => {
     await completeMembershipSession(COMPLETE)
 
-    const entry = render(fake.batches[0]?.[5]?.args[0])
+    const entry = render(fake.batches[0]?.[6]?.args[0])
     expect(entry.sql).toContain("WHERE h.booking_id = $1 AND h.state = 'consumed'")
     expect(entry.sql).toContain('m.price_paid_paise::bigint AS price')
     expect(entry.sql).toContain(

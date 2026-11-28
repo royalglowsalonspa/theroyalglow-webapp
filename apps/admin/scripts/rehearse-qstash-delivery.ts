@@ -29,7 +29,11 @@ async function verifySchedules(origin: string, schedules: Pick<Client['schedules
   const checks = JOB_SCHEDULES.map((job) => {
     const matches = registered.filter(({ path }) => path === job.path)
     const [match] = matches
-    if (!match) return { job: job.key, status: 'missing' as const }
+    if (!match)
+      return {
+        job: job.key,
+        status: job.optIn ? ('not-configured' as const) : ('missing' as const),
+      }
     if (matches.length !== 1) {
       return { job: job.key, status: 'duplicate' as const, count: matches.length }
     }
@@ -52,7 +56,9 @@ async function verifySchedules(origin: string, schedules: Pick<Client['schedules
     origin,
     checks,
     unexpected,
-    verified: !unexpected.length && checks.every((check) => check.status === 'verified'),
+    verified:
+      !unexpected.length &&
+      checks.every(({ status }) => status === 'verified' || status === 'not-configured'),
   }
 }
 

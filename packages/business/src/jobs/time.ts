@@ -138,6 +138,14 @@ export function monthKeyIST(now: Date = new Date()): string {
   return `${wall.getUTCFullYear()}-${pad2(wall.getUTCMonth() + 1)}`
 }
 
+/** Half-open bounds for a validated YYYY-MM issue period on the IST calendar. */
+export function istMonthBounds(month: string): readonly [Date, Date] {
+  const first = new Date(`${month}-01T00:00:00Z`)
+  const next = new Date(first)
+  next.setUTCMonth(next.getUTCMonth() + 1)
+  return [new Date(first.getTime() - IST_OFFSET_MS), new Date(next.getTime() - IST_OFFSET_MS)]
+}
+
 // Whole IST calendar days from `now` to `target` (positive when target is in the
 // future). Both instants are reduced to their IST midnight before differencing,
 // so the result is a calendar-day count, not a 24-hour-bucket count.

@@ -118,7 +118,7 @@ services:
   # ---------------------------------------------------------------------------
   invoicing:
     <<: *app
-    command: ['bun', 'run', '--filter=@rgss/invoicing', 'start']
+    command: ['bun', 'run', '--filter=@rgss/invoice', 'start']
     env_file: [./env/invoicing.env]
     environment:
       PORT: '8080'

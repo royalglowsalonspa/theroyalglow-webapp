@@ -40,7 +40,19 @@
  ************************************************************/
 
 import type { SalesReportIssuerRevenue } from '@rgss/types'
-import { and, asc, desc, eq, gte, isNotNull, isNull, lt, lte, sql } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  type SQLWrapper,
+  sql,
+} from 'drizzle-orm'
 import { db } from '../index'
 import { session, user } from '../schema/auth'
 import { booking, bookingStatusLog } from '../schema/booking'
@@ -170,14 +182,22 @@ export async function cleanupExpiredSessions(now: Date = new Date()): Promise<nu
   return rows.length
 }
 
-// Job 1 — aggregate the given IST date's PAID invoices + that date's bookings
-// into one daily_sales_summary row per branch, upserting on the (date, branch)
-// unique constraint. Mirrors the SQL column mapping exactly: salon/spa splits
-// come from service invoices joined to their booking's service_type, membership
-// revenue from membership_purchase invoices, payment-method splits from
-// payment_method, plus booking counters and the new-customer count (a customer
-// whose first-ever booking falls on the date). Idempotent via ON CONFLICT DO
-// UPDATE. (Properties 4, 11)
+function recordedPaymentAmount(
+  id: SQLWrapper,
+  headerMethod: SQLWrapper,
+  invoiceTotal: SQLWrapper,
+  method: 'cash' | 'upi' | 'card' | 'online',
+) {
+  return sql`COALESCE((
+    SELECT sum(CASE WHEN p.payment_method = ${method}::payment_method THEN a.amount_paise ELSE 0 END)
+    FROM invoice_payment_allocation a
+    JOIN customer_payment p ON p.id = a.payment_id AND p.source = 'service_checkout'
+    WHERE a.invoice_id = ${id}
+  ), CASE WHEN ${headerMethod} = ${method}::payment_method THEN ${invoiceTotal} ELSE 0 END)`
+}
+
+// Job 1 aggregates the IST day's paid invoices and bookings into one summary
+// per branch. The upsert also handles reruns for the same day. (Properties 4, 11)
 export async function buildDailySalesSummary(dateISO: string) {
   const { start, end } = istDayRange(dateISO)
   const bookingDate = new Date(`${dateISO}T00:00:00.000Z`)
@@ -190,10 +210,10 @@ export async function buildDailySalesSummary(dateISO: string) {
       salonRevenuePaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'service' and ${booking.serviceType} = 'salon' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
       spaRevenuePaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'service' and ${booking.serviceType} = 'spa' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
       membershipRevenuePaise: sql<number>`coalesce(sum(case when ${invoice.invoiceType} = 'membership_purchase' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
-      cashRevenuePaise: sql<number>`coalesce(sum(case when ${invoice.paymentMethod} = 'cash' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
-      upiRevenuePaise: sql<number>`coalesce(sum(case when ${invoice.paymentMethod} = 'upi' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
-      cardRevenuePaise: sql<number>`coalesce(sum(case when ${invoice.paymentMethod} = 'card' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
-      onlineRevenuePaise: sql<number>`coalesce(sum(case when ${invoice.paymentMethod} = 'online' then ${invoice.totalAmountPaise} else 0 end), 0)::int`,
+      cashRevenuePaise: sql<number>`coalesce(sum(${recordedPaymentAmount(invoice.id, invoice.paymentMethod, invoice.totalAmountPaise, 'cash')}), 0)::int`,
+      upiRevenuePaise: sql<number>`coalesce(sum(${recordedPaymentAmount(invoice.id, invoice.paymentMethod, invoice.totalAmountPaise, 'upi')}), 0)::int`,
+      cardRevenuePaise: sql<number>`coalesce(sum(${recordedPaymentAmount(invoice.id, invoice.paymentMethod, invoice.totalAmountPaise, 'card')}), 0)::int`,
+      onlineRevenuePaise: sql<number>`coalesce(sum(${recordedPaymentAmount(invoice.id, invoice.paymentMethod, invoice.totalAmountPaise, 'online')}), 0)::int`,
       discountGivenPaise: sql<number>`coalesce(sum(${invoice.discountAmountPaise}), 0)::int`,
       gemsRedeemedCount: sql<number>`coalesce(sum(${invoice.gemsRedeemed}), 0)::int`,
     })
@@ -949,10 +969,10 @@ export async function jobNightlySalesSummary(): Promise<void> {
                  THEN i.total_amount_paise ELSE 0 END)::int AS spa_revenue_paise,
         SUM(CASE WHEN i.invoice_type = 'membership_purchase'
                  THEN i.total_amount_paise ELSE 0 END)::int AS membership_revenue_paise,
-        SUM(CASE WHEN i.payment_method = 'cash'   THEN i.total_amount_paise ELSE 0 END)::int AS cash_revenue_paise,
-        SUM(CASE WHEN i.payment_method = 'upi'    THEN i.total_amount_paise ELSE 0 END)::int AS upi_revenue_paise,
-        SUM(CASE WHEN i.payment_method = 'card'   THEN i.total_amount_paise ELSE 0 END)::int AS card_revenue_paise,
-        SUM(CASE WHEN i.payment_method = 'online' THEN i.total_amount_paise ELSE 0 END)::int AS online_revenue_paise,
+        SUM(${recordedPaymentAmount(sql`i.id`, sql`i.payment_method`, sql`i.total_amount_paise`, 'cash')})::int AS cash_revenue_paise,
+        SUM(${recordedPaymentAmount(sql`i.id`, sql`i.payment_method`, sql`i.total_amount_paise`, 'upi')})::int AS upi_revenue_paise,
+        SUM(${recordedPaymentAmount(sql`i.id`, sql`i.payment_method`, sql`i.total_amount_paise`, 'card')})::int AS card_revenue_paise,
+        SUM(${recordedPaymentAmount(sql`i.id`, sql`i.payment_method`, sql`i.total_amount_paise`, 'online')})::int AS online_revenue_paise,
         SUM(i.discount_amount_paise)::int AS discount_given_paise,
         SUM(i.gems_redeemed)::int AS gems_redeemed_count
       FROM invoice i

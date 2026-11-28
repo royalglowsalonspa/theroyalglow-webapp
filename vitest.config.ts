@@ -111,12 +111,12 @@ export function createRootConfig({ includeLiveSuites = false }: RootConfigOption
         {
           plugins: [react()],
           resolve: {
-            alias: { react: resolve(import.meta.dirname, 'apps/invoicing/node_modules/react') },
+            alias: { react: resolve(import.meta.dirname, 'apps/invoice/node_modules/react') },
           },
           test: {
-            name: 'invoicing',
+            name: 'invoice',
             environment: 'node',
-            include: ['apps/invoicing/src/**/*.test.ts'],
+            include: ['apps/invoice/src/node/**/*.test.ts'],
             exclude,
           },
         },

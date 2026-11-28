@@ -32,7 +32,7 @@ COPY package.json bun.lock turbo.json tsconfig.json ./
 COPY apps/web/package.json                 apps/web/
 COPY apps/admin/package.json               apps/admin/
 COPY apps/cms/package.json                 apps/cms/
-COPY apps/invoicing/package.json           apps/invoicing/
+COPY apps/invoice/package.json           apps/invoice/
 COPY packages/business/package.json        packages/business/
 COPY packages/db/package.json              packages/db/
 COPY packages/errors/package.json          packages/errors/
@@ -103,8 +103,8 @@ RUN NEXT_PUBLIC_APP_URL=$ADMIN_APP_URL \
 RUN NEXT_PUBLIC_APP_URL=$CMS_URL \
     bun run --filter=@rgss/cms build
 
-# Invoicing service (tsup → dist/index.js)
-RUN bun run --filter=@rgss/invoicing build
+# Invoice Node renderer (tsup → dist/node/index.js)
+RUN bun run --filter=@rgss/invoice build:node
 
 # -----------------------------------------------------------------------------
 # Runtime. The command is supplied per service by docker-compose.yml.

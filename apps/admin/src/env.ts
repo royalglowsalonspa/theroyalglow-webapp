@@ -60,12 +60,35 @@ export const env = createEnv({
     // enqueue helper (lib/jobs/enqueue.ts) both publish with this. Required so
     // the admin runtime can register and enqueue jobs (mirrors apps/web).
     QSTASH_TOKEN: z.string().min(1),
-    // Invoice PDF render service (Cloud Run, apps/invoicing). OPTIONAL so the
+    // Invoice PDF render service (Cloud Run, apps/invoice). OPTIONAL so the
     // app builds/runs without it — the relocated invoice-pdf job degrades
     // gracefully to a no-attachment email when either of these is unset
     // (mirrors apps/web/src/env.ts).
     INVOICING_SERVICE_URL: z.string().url().optional(),
     INVOICE_PDF_HMAC_SECRET: z.string().min(1).optional(),
+    INVOICE_ROSTER_URL: z.url({ protocol: /^https$/ }).optional(),
+    INVOICE_ROSTER_SOURCE: z.string().trim().min(1).max(32).optional(),
+    INVOICE_ROSTER_SECRET: z.string().min(32).optional(),
+    INVOICE_ROSTER_ACCESS_CLIENT_ID: z.string().min(1).optional(),
+    INVOICE_ROSTER_ACCESS_CLIENT_SECRET: z.string().min(1).optional(),
+    INVOICE_EVENTS_URL: z
+      .url({ protocol: /^https$/ })
+      .refine((value) => {
+        const endpoint = URL.parse(value)
+        return (
+          endpoint !== null && endpoint.href === `${endpoint.origin}/internal/v1/invoice-events`
+        )
+      }, 'Use the full HTTPS invoice events endpoint')
+      .optional(),
+    INVOICE_EVENTS_SOURCE: z.string().trim().min(1).max(32).optional(),
+    INVOICE_EVENTS_SECRET: z.string().min(32).optional(),
+    INVOICE_EVENTS_ACCESS_CLIENT_ID: z.string().min(1).optional(),
+    INVOICE_EVENTS_ACCESS_CLIENT_SECRET: z.string().min(1).optional(),
+    INVOICE_AUTOMATIC_EMAIL_BRANCH_ID: z
+      .string()
+      .regex(/^[a-zA-Z0-9_-]{1,80}$/)
+      .optional(),
+    INVOICE_AUTOMATIC_EMAIL_START_AT: z.iso.datetime().optional(),
   },
   client: {
     // Admin origin (https://admin.theroyalglow.in in prod — Req 12.3)
@@ -95,6 +118,18 @@ export const env = createEnv({
     QSTASH_TOKEN: process.env.QSTASH_TOKEN,
     INVOICING_SERVICE_URL: process.env.INVOICING_SERVICE_URL,
     INVOICE_PDF_HMAC_SECRET: process.env.INVOICE_PDF_HMAC_SECRET,
+    INVOICE_ROSTER_URL: process.env.INVOICE_ROSTER_URL,
+    INVOICE_ROSTER_SOURCE: process.env.INVOICE_ROSTER_SOURCE,
+    INVOICE_ROSTER_SECRET: process.env.INVOICE_ROSTER_SECRET,
+    INVOICE_ROSTER_ACCESS_CLIENT_ID: process.env.INVOICE_ROSTER_ACCESS_CLIENT_ID,
+    INVOICE_ROSTER_ACCESS_CLIENT_SECRET: process.env.INVOICE_ROSTER_ACCESS_CLIENT_SECRET,
+    INVOICE_EVENTS_URL: process.env.INVOICE_EVENTS_URL,
+    INVOICE_EVENTS_SOURCE: process.env.INVOICE_EVENTS_SOURCE,
+    INVOICE_EVENTS_SECRET: process.env.INVOICE_EVENTS_SECRET,
+    INVOICE_EVENTS_ACCESS_CLIENT_ID: process.env.INVOICE_EVENTS_ACCESS_CLIENT_ID,
+    INVOICE_EVENTS_ACCESS_CLIENT_SECRET: process.env.INVOICE_EVENTS_ACCESS_CLIENT_SECRET,
+    INVOICE_AUTOMATIC_EMAIL_BRANCH_ID: process.env.INVOICE_AUTOMATIC_EMAIL_BRANCH_ID,
+    INVOICE_AUTOMATIC_EMAIL_START_AT: process.env.INVOICE_AUTOMATIC_EMAIL_START_AT,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_ADMIN_SENTRY_DSN: process.env.NEXT_PUBLIC_ADMIN_SENTRY_DSN,
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,

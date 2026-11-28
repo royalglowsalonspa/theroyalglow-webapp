@@ -111,6 +111,8 @@ function storedItem(overrides: Partial<StoredItem> = {}): StoredItem {
 
 function loaded(overrides: Partial<LoadedInvoice> = {}): LoadedInvoice {
   return {
+    workerOwnsEmail: false,
+    paymentTenders: null,
     invoice: storedInvoice(),
     items: [
       storedItem(),
@@ -338,6 +340,40 @@ describe('invoice PDF delivery', () => {
     vi.unstubAllEnvs()
     vi.unstubAllGlobals()
   })
+
+  it.each([true, false])(
+    'does not send legacy email for a Worker-owned invoice when rendering succeeds=%s',
+    async (renderOk) => {
+      const invoice = { ...loaded(), workerOwnsEmail: true }
+      invoiceMocks.getInvoiceForPdf.mockResolvedValue(invoice)
+      vi.stubEnv('RESEND_API_KEY', 'test-email-key')
+      const fetcher = vi.fn().mockResolvedValue(
+        renderOk
+          ? Response.json({
+              invoiceNumber: invoice.invoice.invoiceNumber,
+              pdfUrl: 'https://invoice-storage.test/42.pdf',
+              pdfBase64: 'cGRm',
+            })
+          : new Response(null, { status: 503 }),
+      )
+      vi.stubGlobal('fetch', fetcher)
+      const response = await invoicePdfPOST(
+        new Request('https://admin.test/api/jobs/invoice-pdf', {
+          method: 'POST',
+          body: JSON.stringify({ invoiceId: invoice.invoice.id }),
+        }),
+      )
+
+      expect(await response.json()).toMatchObject({ success: true, sent: false })
+      expect(fetcher).toHaveBeenCalledOnce()
+      expect(invoiceMocks.send).not.toHaveBeenCalled()
+      if (renderOk)
+        expect(invoiceMocks.setInvoicePdfUrl).toHaveBeenCalledWith(
+          invoice.invoice.id,
+          'https://invoice-storage.test/42.pdf',
+        )
+    },
+  )
 
   it('emails the stored issuer and forwards the rendered PDF to the email provider', async () => {
     const invoice = loaded()

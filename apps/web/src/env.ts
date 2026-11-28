@@ -79,7 +79,7 @@ export const env = createEnv({
     BETTER_STACK_HEARTBEAT_OFFER_EXPIRE: z.string().url().optional(),
     BETTER_STACK_HEARTBEAT_GEMS_EXPIRE: z.string().url().optional(),
     BETTER_STACK_HEARTBEAT_MONTHLY_GST: z.string().url().optional(),
-    // Invoice PDF render service (Cloud Run, apps/invoicing). OPTIONAL so the
+    // Invoice PDF render service (Cloud Run, apps/invoice). OPTIONAL so the
     // app builds/runs without it — the invoice-pdf job degrades gracefully to a
     // no-attachment email when either of these is unset.
     INVOICING_SERVICE_URL: z.string().url().optional(),

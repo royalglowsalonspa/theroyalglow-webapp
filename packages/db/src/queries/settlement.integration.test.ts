@@ -301,6 +301,9 @@ describe.skipIf(!LIVE)(
         db.execute(
           sql`delete from invoice_item where invoice_id in (select id from invoice where customer_id like ${like})`,
         ),
+        db.execute(
+          sql`delete from invoice_issue_outbox where invoice_id in (select id from invoice where customer_id like ${like})`,
+        ),
         db.execute(sql`delete from invoice where customer_id like ${like}`),
         // Membership holds, like ledger rows, go only under the fixture flag (0026).
         db.execute(

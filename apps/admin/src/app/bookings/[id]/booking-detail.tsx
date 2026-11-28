@@ -52,6 +52,7 @@
 'use client'
 
 import { ERROR_CODES } from '@rgss/errors'
+import { splitCheckoutTendersSchema } from '@rgss/types'
 import { ArrowLeft, Check, TriangleAlert, X } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -86,7 +87,7 @@ import {
   staffOptionLabel,
 } from '@/lib/admin/bookings'
 import { formatDateTimeIST } from '@/lib/admin/format'
-import { minutesToHM, todayISTDateString } from '@/lib/admin/memberships'
+import { minutesToHM, rupeesToPaise, todayISTDateString } from '@/lib/admin/memberships'
 import { toast } from '@/lib/admin/toast'
 
 const PAYMENT_METHODS = [
@@ -96,6 +97,11 @@ const PAYMENT_METHODS = [
 ] as const
 
 type PaymentMethod = (typeof PAYMENT_METHODS)[number]['value']
+const checkoutMethods = [...PAYMENT_METHODS, { value: 'split', label: 'Split payment' }] as const
+
+function checkoutPaise(value: string) {
+  return /^\d{1,8}(?:\.\d{1,2})?$/.test(value.trim()) ? rupeesToPaise(value) : null
+}
 
 interface CompletionResult {
   invoiceNumber: string
@@ -1012,7 +1018,11 @@ function Checkout({
   onChanged: BookingChanged
   onCompleted: (result: CompletionResult) => void
 }) {
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | 'split'>('cash')
+  const [tenders, setTenders] = useState([
+    { method: 'cash', amount: '' },
+    { method: 'upi', amount: '' },
+  ])
   const [offers, setOffers] = useState<CheckoutOffers | null>(null)
   const [offerId, setOfferId] = useState<string>(NO_OFFER)
   const { active, begin, finish } = useBookingAction<'checkout'>()
@@ -1033,8 +1043,17 @@ function Checkout({
 
   const chosen = offers?.offers.find((o) => o.id === offerId) ?? null
   const totalPaise = booking.totalAmountPaise - (chosen?.discountPaise ?? 0)
+  const split = paymentMethod === 'split'
+  const parsedTenders = splitCheckoutTendersSchema.safeParse(
+    tenders.map(({ method, amount }) => ({ method, amountPaise: checkoutPaise(amount) })),
+  )
+  const paidPaise = parsedTenders.success
+    ? parsedTenders.data[0].amountPaise + parsedTenders.data[1].amountPaise
+    : null
+  const balancePaise = paidPaise === null ? null : totalPaise - paidPaise
 
-  const complete = useCallback(async () => {
+  async function complete() {
+    if (split && (!parsedTenders.success || balancePaise !== 0)) return
     const fallback = 'Could not complete this booking.'
     if (!begin('checkout')) return
     setActionError(null)
@@ -1042,7 +1061,10 @@ function Checkout({
       const data = await postBookingAction<CompletionResponse>(
         booking,
         'complete',
-        { paymentMethod, ...(chosen ? { offerId: chosen.id } : {}) },
+        {
+          ...(split ? { paymentTenders: parsedTenders.data } : { paymentMethod }),
+          ...(chosen ? { offerId: chosen.id } : {}),
+        },
         fallback,
       )
       toast.success(`Booking completed · invoice ${data.invoice.invoiceNumber}`)
@@ -1067,7 +1089,7 @@ function Checkout({
     } finally {
       finish()
     }
-  }, [booking, paymentMethod, chosen, onCompleted, onChanged, begin, finish])
+  }
 
   return (
     <div className="space-y-3">
@@ -1080,7 +1102,12 @@ function Checkout({
         ) : offers.offers.length === 0 ? (
           <p className="font-sans text-xs text-warm-gray">{offers.note ?? 'No offer applies.'}</p>
         ) : (
-          <RadioGroup value={offerId} onValueChange={setOfferId} aria-label="Offer">
+          <RadioGroup
+            value={offerId}
+            onValueChange={setOfferId}
+            aria-label="Offer"
+            disabled={submitting}
+          >
             <div className="flex items-center gap-2">
               <RadioGroupItem id="offer-none" value={NO_OFFER} />
               <Label
@@ -1114,21 +1141,83 @@ function Checkout({
         </legend>
         <RadioGroup
           value={paymentMethod}
-          onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
+          onValueChange={(value) => {
+            const method = checkoutMethods.find((option) => option.value === value)
+            if (method) setPaymentMethod(method.value)
+          }}
           aria-label="Payment method"
+          disabled={submitting}
         >
-          {PAYMENT_METHODS.map((pm) => (
-            <div key={pm.value} className="flex items-center gap-2">
-              <RadioGroupItem id={`pay-${pm.value}`} value={pm.value} />
-              <Label
-                htmlFor={`pay-${pm.value}`}
-                className="cursor-pointer font-sans text-sm text-cocoa-dark"
-              >
-                {pm.label}
-              </Label>
-            </div>
-          ))}
+          {checkoutMethods
+            .filter((method) => method.value !== 'split' || totalPaise > 1 || split)
+            .map((pm) => (
+              <div key={pm.value} className="flex items-center gap-2">
+                <RadioGroupItem id={`pay-${pm.value}`} value={pm.value} />
+                <Label
+                  htmlFor={`pay-${pm.value}`}
+                  className="cursor-pointer font-sans text-sm text-cocoa-dark"
+                >
+                  {pm.label}
+                </Label>
+              </div>
+            ))}
         </RadioGroup>
+        {split ? (
+          <div className="space-y-3 py-2">
+            {tenders.map(({ method, amount }, index) => {
+              const change = (values: { method?: string; amount?: string }) =>
+                setTenders((rows) =>
+                  rows.map((row, rowIndex) => (rowIndex === index ? { ...row, ...values } : row)),
+                )
+              const field = index === 0 ? 'first' : 'second'
+              return (
+                <div key={field} className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor={`checkout-${field}-method`}>
+                      {index === 0 ? 'First method' : 'Second method'}
+                    </Label>
+                    <Select
+                      value={method}
+                      onValueChange={(value) => change({ method: value })}
+                      disabled={submitting}
+                    >
+                      <SelectTrigger id={`checkout-${field}-method`} className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAYMENT_METHODS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`checkout-${field}-amount`}>
+                      {index === 0 ? 'First amount (₹)' : 'Second amount (₹)'}
+                    </Label>
+                    <Input
+                      id={`checkout-${field}-amount`}
+                      inputMode="decimal"
+                      value={amount}
+                      onChange={(event) => change({ amount: event.target.value })}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+            <p className="font-sans text-xs text-warm-gray" role="status">
+              {balancePaise === null
+                ? 'Enter two positive amounts using different methods.'
+                : balancePaise === 0
+                  ? 'Payments match the total.'
+                  : balancePaise > 0
+                    ? `${formatINRWithPaise(balancePaise)} remaining.`
+                    : `${formatINRWithPaise(-balancePaise)} over the total.`}
+            </p>
+          </div>
+        ) : null}
       </fieldset>
 
       {chosen ? (
@@ -1155,7 +1244,7 @@ function Checkout({
       <button
         type="button"
         onClick={complete}
-        disabled={submitting}
+        disabled={submitting || (split && balancePaise !== 0)}
         aria-busy={submitting}
         className={PRIMARY_ACTION}
       >

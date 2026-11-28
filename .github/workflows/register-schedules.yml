@@ -46,7 +46,7 @@ on:
         type: boolean
         default: true
       jobs:
-        description: 'Comma-separated canonical job keys. Required to apply. Leave blank to preview all.'
+        description: 'Comma-separated canonical job keys. Required to apply. Leave blank to preview default jobs.'
         type: string
 
 concurrency:

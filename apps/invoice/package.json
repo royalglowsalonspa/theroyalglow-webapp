@@ -1,0 +1,50 @@
+{
+  "name": "@rgss/invoice",
+  "version": "0.4.0",
+  "packageManager": "bun@1.4.5",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --ip 127.0.0.1",
+    "configure:staging": "bun scripts/staging-config.mjs",
+    "test:staging-config": "bun test scripts/staging-config.test.mjs",
+    "smoke:staging": "bun scripts/staging-smoke.mjs",
+    "test:staging-smoke": "bun test scripts/staging-smoke.test.mjs",
+    "build": "bun run build:worker && bun run build:node",
+    "build:worker": "wrangler deploy --dry-run --outdir dist/worker",
+    "build:node": "tsup",
+    "dev:node": "tsup --watch --onSuccess \"node dist/node/index.js\"",
+    "start": "node dist/node/index.js",
+    "types": "wrangler types .wrangler/worker-configuration.d.ts",
+    "typecheck": "bun run types && tsc --noEmit && tsc --project tsconfig.node.json",
+    "lint": "biome check src test scripts wrangler.jsonc",
+    "test:runtime": "node --test test/runtime.test.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1175.0",
+    "@fontsource/noto-sans-devanagari": "5.3.0",
+    "@fontsource/noto-sans-kannada": "5.3.0",
+    "@fontsource/noto-sans-telugu": "5.3.0",
+    "@hono/node-server": "^2.1.11",
+    "@react-pdf/renderer": "^4.9.0",
+    "@rgss/business": "workspace:*",
+    "@rgss/errors": "workspace:*",
+    "@rgss/logger": "workspace:*",
+    "@rgss/types": "workspace:*",
+    "@sentry/node": "^11.16.0",
+    "hono": "^4.13.19",
+    "jose": "6.2.12",
+    "react": "^19.3.1",
+    "takumi-pdf": "0.21.3",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "miniflare": "5.20261119.0-beta",
+    "tsup": "^9.0.0",
+    "typescript": "7.0.2",
+    "vitest": "5.1.1",
+    "wrangler": "4.166.0"
+  }
+}

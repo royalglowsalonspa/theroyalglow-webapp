@@ -43,6 +43,9 @@
 
 'use client'
 
+import { formatSplitPayment } from '@rgss/business'
+import type { SplitCheckoutTenders } from '@rgss/types'
+
 import { cn } from '@rgss/ui/lib/utils'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
@@ -86,6 +89,7 @@ interface Invoice {
   totalAmountPaise: number
   invoiceType: string
   paymentMethod: string
+  paymentTenders?: SplitCheckoutTenders | null
   paymentStatus: string
   paymentReference: string | null
   gemsEarned: number
@@ -259,7 +263,9 @@ function InvoiceBody({
             </span>
           ) : null}
           <span className="font-ui text-[11px] uppercase tracking-[0.5px] text-dusty-gray">
-            {invoice.paymentMethod}
+            {invoice.paymentTenders
+              ? formatSplitPayment(invoice.paymentTenders)
+              : invoice.paymentMethod}
             {invoice.paymentReference ? ` · ${invoice.paymentReference}` : ''}
           </span>
           {invoice.pdfUrl ? (

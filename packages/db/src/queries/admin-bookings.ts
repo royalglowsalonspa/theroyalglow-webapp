@@ -40,7 +40,11 @@
  ************************************************************/
 
 import { AppError, conflict, ERROR_CODES } from '@rgss/errors'
-import type { SettlementSetting } from '@rgss/types'
+import {
+  type SettlementSetting,
+  type SplitCheckoutTenders,
+  splitCheckoutTendersSchema,
+} from '@rgss/types'
 import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { nanoid } from 'nanoid'
@@ -620,7 +624,7 @@ export async function assignStaff(
 /** The service invoice of a completed booking: every amount and tax fact is final. */
 export type CompleteBookingInvoice = Omit<
   InvoiceIssue,
-  'id' | 'bookingId' | 'gemsRedeemed' | 'gemsRedeemedServiceId' | 'offer'
+  'id' | 'bookingId' | 'gemsRedeemed' | 'gemsRedeemedServiceId' | 'offer' | 'automaticDelivery'
 > & {
   /**
    * The offer applied at checkout (offers.md): its rule snapshot for the
@@ -671,11 +675,36 @@ function isNotCompletableAbort(error: unknown): boolean {
   return abortedWith(error, NOT_COMPLETABLE)
 }
 
+function splitReceiptStatement(id: string, actor: string, [first, second]: SplitCheckoutTenders) {
+  return db.execute(sql`
+    WITH tender(id, source_key, method, amount_paise) AS (
+      VALUES
+        (${nanoid()}::text, ${id}::text, ${first.method}::payment_method, ${first.amountPaise}::int),
+        (${nanoid()}::text, ${`${id}:2`}::text, ${second.method}::payment_method, ${second.amountPaise}::int)
+    ), receipt AS (
+      INSERT INTO customer_payment
+        (id, branch_id, payment_method, amount_paise, received_at, recorded_by, source, source_key)
+      SELECT t.id, i.branch_id, t.method, t.amount_paise, i.paid_at, ${actor}, 'service_checkout', t.source_key
+      FROM invoice i CROSS JOIN tender t
+      WHERE i.id = ${id} AND i.invoice_type = 'service' AND i.payment_status = 'paid'
+        AND i.payment_method = ${first.method}::payment_method
+        AND i.total_amount_paise = (SELECT sum(amount_paise) FROM tender)
+      RETURNING id, branch_id, amount_paise
+    ), allocated AS (
+      INSERT INTO invoice_payment_allocation (payment_id, invoice_id, branch_id, amount_paise)
+      SELECT id, ${id}, branch_id, amount_paise FROM receipt
+      RETURNING payment_id
+    )
+    SELECT (CASE WHEN count(*) = 2 THEN '1' ELSE ${'split_receipt_amount_mismatch'} END)::int AS ok
+    FROM allocated
+  `)
+}
+
 // Complete a booking and bill it in ONE atomic db.batch() (Req 12.1): set the
 // booking → `completed` while it is still confirmed or in progress, take the
 // branch's next invoice number and issue the service invoice with its issuer
-// snapshot and per-line tax facts (multi-branch R6.1, R6.2), credit or redeem
-// gems, append a status-log entry, and recompute the customer's CRM KPIs.
+// snapshot and per-line tax facts (multi-branch R6.1, R6.2), record and allocate the
+// tender, credit or redeem gems, append a status-log entry, and recompute CRM KPIs.
 //
 // Every amount and tax fact is computed by the route with @rgss/business
 // (prepareInvoiceTax, calculateGemsEarned) and passed in; this layer persists
@@ -691,13 +720,33 @@ export async function completeBookingWithInvoice(params: {
   expectedAssignments?: readonly BookingServiceAssignment[]
   invoice: CompleteBookingInvoice
   items: InvoiceIssueLine[]
+  automaticDelivery?: InvoiceIssue['automaticDelivery']
+  paymentTenders?: SplitCheckoutTenders
   /**
    * The Developer's settlement settings, stored on the entries recorded when
    * gems spent on this booking were issued by another branch (R10).
    */
   settlement: SettlementSetting
 }) {
-  const { bookingId, changedById, invoice: inv, items, settlement } = params
+  const {
+    bookingId,
+    changedById,
+    invoice: inv,
+    items,
+    settlement,
+    automaticDelivery,
+    paymentTenders,
+  } = params
+  if (paymentTenders) {
+    const split = splitCheckoutTendersSchema.parse(paymentTenders)
+    if (
+      inv.invoiceType !== 'service' ||
+      inv.paymentMethod !== split[0].method ||
+      split[0].amountPaise + split[1].amountPaise !== inv.totalAmountPaise
+    ) {
+      throw new RangeError('Split payments must equal the saved service invoice total')
+    }
+  }
   const redemption = inv.gemsRedemption ?? null
 
   // The invoice is issued by the booking's own branch.
@@ -728,6 +777,8 @@ export async function completeBookingWithInvoice(params: {
     ...header,
     id: invoiceId,
     bookingId,
+    ...(automaticDelivery ? { automaticDelivery } : {}),
+    ...(paymentTenders ? { paymentTenders } : {}),
     // Stamp the redemption onto the invoice (the redeemed amount and the
     // service it covered). Zero / null when no redemption took place.
     gemsRedeemed: redemption?.gemsRequired ?? 0,
@@ -742,7 +793,10 @@ export async function completeBookingWithInvoice(params: {
         }
       : null,
   }
-  const { counter, insertInvoice, insertLines } = issueInvoiceStatements(issue, items)
+  const { counter, insertInvoice, insertLines, insertSnapshot } = issueInvoiceStatements(
+    issue,
+    items,
+  )
   const number = invoiceNumberOf(invoiceId)
 
   // The prior status in the audit log must match the row being completed.
@@ -765,7 +819,7 @@ export async function completeBookingWithInvoice(params: {
     SELECT (CASE WHEN count(*) = 0 THEN ${NOT_COMPLETABLE} ELSE '1' END)::int AS ok FROM done
   `)
 
-  // Order: [status guard, counter, invoice, (lines), (offer redemption),
+  // Order: [status guard, counter, invoice, (lines), snapshot, tender, (offer redemption),
   // (guarded gems redemption + redeemed tx), (earned gems tx + credit), status
   // log, KPIs, booking read]. The invoice sits at index 2; the booking read is
   // last.
@@ -773,6 +827,28 @@ export async function completeBookingWithInvoice(params: {
   if (insertLines) {
     statements.push(insertLines)
   }
+  statements.push(insertSnapshot)
+
+  // Read the immutable amount and the receipt details from the invoice just issued.
+  // A zero-value checkout records the invoice only, since no money changed hands.
+  statements.push(
+    paymentTenders
+      ? splitReceiptStatement(invoiceId, changedById, paymentTenders)
+      : db.execute(sql`
+      WITH receipt AS (
+        INSERT INTO customer_payment (id, branch_id, payment_method, amount_paise, received_at,
+                                      payment_reference, recorded_by, source, source_key)
+        SELECT ${nanoid()}, i.branch_id, i.payment_method, i.total_amount_paise, i.paid_at,
+               i.payment_reference, ${changedById}, 'service_checkout', i.id
+        FROM invoice i
+        WHERE i.id = ${invoiceId} AND i.invoice_type = 'service' AND i.payment_status = 'paid'
+          AND i.total_amount_paise > 0
+        RETURNING id, branch_id, source_key, amount_paise
+      )
+      INSERT INTO invoice_payment_allocation (payment_id, invoice_id, branch_id, amount_paise)
+      SELECT id, source_key, branch_id, amount_paise FROM receipt
+    `),
+  )
 
   // The offer redemption, revalidated in the write (R4.5): it is recorded only
   // while the offer is still active and the day is within its dates, else the

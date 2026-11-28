@@ -1,10 +1,10 @@
-import { invoiceFileStem, signRequest } from '@rgss/business'
+import { invoiceFileStem } from '@rgss/business'
 import { getInvoiceById } from '@rgss/db/queries'
 import { notFound, serviceUnavailable } from '@rgss/errors'
 import { env } from '@/env'
 import { requireBranchRole } from '@/lib/api/branch-context'
 import { withErrorHandler } from '@/lib/api/error-handler'
-import { invoicePdfDownloadPath } from '@/lib/invoices/pdf-access'
+import { invoicePdfDownloadPath, requestStoredInvoicePdf } from '@/lib/invoices/pdf-access'
 
 export const GET = withErrorHandler(
   async (_req: Request, route: { params: Promise<{ id: string }> }) => {
@@ -21,24 +21,12 @@ export const GET = withErrorHandler(
     const secret = env.INVOICE_PDF_HMAC_SECRET
     if (!serviceUrl || !secret) throw serviceUnavailable('invoice PDF')
 
-    const body = JSON.stringify({
-      invoiceNumber: invoice.invoiceNumber,
-      issuedAt: (invoice.taxPointAt ?? invoice.createdAt).toISOString(),
-    })
-    const timestamp = Date.now()
-    const signature = await signRequest({ secret, body, timestamp })
-    const pdf = await fetch(`${serviceUrl.replace(/\/+$/, '')}/v1/invoices/download`, {
-      method: 'POST',
-      body,
-      headers: {
-        'content-type': 'application/json',
-        'x-rgss-timestamp': String(timestamp),
-        'x-rgss-signature': signature,
-      },
-      cache: 'no-store',
-      redirect: 'error',
-      signal: AbortSignal.timeout(10_000),
-    }).catch(() => {
+    const pdf = await requestStoredInvoicePdf(
+      serviceUrl,
+      secret,
+      invoice.invoiceNumber,
+      (invoice.taxPointAt ?? invoice.createdAt).toISOString(),
+    ).catch(() => {
       throw serviceUnavailable('invoice PDF')
     })
 

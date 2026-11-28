@@ -28,6 +28,9 @@ docs
 **/.env
 **/.env.*
 !**/.env.example
+**/.dev.vars
+**/.dev.vars.*
+**/.wrangler
 
 # Other apps (not part of this build — but we still need their package.json
 # for workspace resolution, so we don't exclude apps/ entirely)

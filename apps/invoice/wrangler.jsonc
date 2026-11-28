@@ -1,0 +1,30 @@
+{
+  "name": "rgss-invoice-staging",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-11-26",
+  "workers_dev": false,
+  "preview_urls": false,
+  "rules": [{ "type": "Data", "globs": ["**/*.woff2", "**/icon-192.png"], "fallthrough": true }],
+  "vars": { "BILLING_SOURCE": "staging" },
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "rgss-invoice-staging",
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "rgss-invoice-staging" }],
+  "durable_objects": {
+    "bindings": [
+      { "name": "PDF", "class_name": "InvoicePdf" },
+      { "name": "ACCESS_SYNC", "class_name": "InvoiceAccessSync" },
+      { "name": "REGISTER", "class_name": "InvoiceRegister" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["InvoicePdf"] },
+    { "tag": "v2", "new_sqlite_classes": ["InvoiceAccessSync"] },
+    { "tag": "v3", "new_sqlite_classes": ["InvoiceRegister"] }
+  ]
+}

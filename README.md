@@ -29,7 +29,7 @@ Start with the README for the application you are changing.
 | [Web](apps/web/README.md) | Public pages, booking dialog, customer accounts, lead capture, customer APIs | 3000 | AWS Lambda + CloudFront through [SST](sst.config.ts) |
 | [Admin](apps/admin/README.md) | Booking operations, billing, customers, memberships, staff, reports, background jobs | 3001 | AWS Lambda + CloudFront through [SST](sst.config.ts) |
 | [CMS](apps/cms/README.md) | Payload admin, marketing content, media, service catalogue authoring | 3002 | Render blueprint in [infra/render/render.yaml](infra/render/render.yaml) |
-| [Invoicing](apps/invoicing/README.md) | HMAC-authenticated PDF rendering and R2 storage | 8080 | Node container targeting Google Cloud Run; see app packaging caveats |
+| [Invoice](apps/invoice/README.md) | Cloudflare portal and HMAC-authenticated Node PDF rendering | 8787 Worker / 8080 Node | Worker staging configuration and a Node container for the existing checkout service |
 
 The public site is `theroyalglow.in`; operations run at `admin.theroyalglow.in`, and Payload runs at `cms.theroyalglow.in`. Admin URLs use root paths such as `/bookings`, not `/admin/bookings`. Payload has its own `/admin` interface and authentication.
 
@@ -109,8 +109,10 @@ Run one command per terminal, from the repository root:
 bun run --filter=@rgss/web dev
 bun run --filter=@rgss/admin dev
 bun run --filter=@rgss/cms dev
-bun run --filter=@rgss/invoicing dev
+bun run --filter=@rgss/invoice dev
 ```
+
+Use `bun run --filter=@rgss/invoice dev:node` when testing the existing checkout renderer on port 8080. The `dev` command starts the Cloudflare Worker on port 8787.
 
 Only start the services needed for your task. `bun run dev` launches the workspace task graph through Turborepo and therefore needs configuration for every participating app; `bun run dev --filter=@rgss/web` runs a subset. The Next.js apps' `dev` scripts use Turbopack, and each has a `dev:webpack` fallback for machines where Turbopack cannot start.
 

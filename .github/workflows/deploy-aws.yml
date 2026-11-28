@@ -2,8 +2,8 @@
 # Deploy apps/web + apps/admin to AWS (M2AWS §8)
 # -----------------------------------------------------------------------------
 # SST v3 -> Lambda (ARM64) + CloudFront + S3, region ap-southeast-1.
-# apps/cms stays on Render; apps/invoicing stays on Cloud Run; Neon, Upstash,
-# QStash, Resend, Ably and R2 are untouched.
+# CMS stays on Render. The invoice portal deploys separately to Cloudflare,
+# and its signed Node renderer keeps the existing Cloud Run deployment.
 #
 # Auth is GitHub OIDC — no long-lived AWS keys in repo secrets. One-time setup
 # is in M2C/M2AWS.md §8.
@@ -121,6 +121,12 @@ jobs:
           R2_BUCKET_NAME: ${{ vars.R2_UPLOAD_PUBLIC_URL && vars.R2_UPLOAD_BUCKET_NAME || vars.R2_BUCKET_NAME }}
           R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
           INVOICING_SERVICE_URL: ${{ vars.INVOICING_SERVICE_URL }}
+          INVOICE_ROSTER_URL: ${{ vars.INVOICE_ROSTER_URL }}
+          INVOICE_ROSTER_SOURCE: ${{ vars.INVOICE_ROSTER_SOURCE }}
+          INVOICE_EVENTS_URL: ${{ vars.INVOICE_EVENTS_URL }}
+          INVOICE_EVENTS_SOURCE: ${{ vars.INVOICE_EVENTS_SOURCE }}
+          INVOICE_AUTOMATIC_EMAIL_BRANCH_ID: ${{ vars.INVOICE_AUTOMATIC_EMAIL_BRANCH_ID }}
+          INVOICE_AUTOMATIC_EMAIL_START_AT: ${{ vars.INVOICE_AUTOMATIC_EMAIL_START_AT }}
         run: bunx sst deploy --stage "$SST_STAGE"
 
       # There is no `sst outputs` subcommand (checked against sst 4.17.1), so the

@@ -1,0 +1,12 @@
+{
+  "name": "rgss-invoice-runtime-probe",
+  "main": "worker.ts",
+  "compatibility_date": "2026-11-26",
+  "workers_dev": false,
+  "preview_urls": false,
+  "rules": [{ "type": "Data", "globs": ["**/*.woff2", "**/icon-192.png"], "fallthrough": true }],
+  "durable_objects": {
+    "bindings": [{ "name": "RENDERER", "class_name": "InvoiceRenderer" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["InvoiceRenderer"] }]
+}

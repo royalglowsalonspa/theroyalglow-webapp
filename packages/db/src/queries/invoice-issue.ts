@@ -9,10 +9,10 @@
  * Description  : The statements that issue an invoice inside a caller's
  *                db.batch(): take the branch's next number for the financial
  *                year, insert the invoice with its number and issuer snapshot,
- *                and insert its lines with their tax facts.
+ *                insert its lines with their tax facts, and capture the issue snapshot.
  *
  * Responsibilities :
- * - issueInvoiceStatements(issue, lines) → the three statements, in order
+ * - issueInvoiceStatements(issue, lines) → the statements, in order
  * - invoiceNumberOf(invoiceId): the number, for text written in the same batch
  * - isDuplicateBookingInvoice(error): a booking already billed
  *
@@ -37,6 +37,7 @@
  *                force (0018 trigger).
  ************************************************************/
 
+import type { SplitCheckoutTenders } from '@rgss/types'
 import { sql } from 'drizzle-orm'
 import { db } from '../index'
 import { invoice, invoiceItem } from '../schema/invoice'
@@ -53,6 +54,7 @@ export type InvoiceIssue = {
   customerId: string
   invoiceType: NonNullable<NewInvoice['invoiceType']>
   paymentMethod: NonNullable<NewInvoice['paymentMethod']>
+  paymentTenders?: SplitCheckoutTenders
   /** Sum of the lines before the discount, tax-inclusive. */
   subtotalPaise: number
   discountAmountPaise: number
@@ -67,6 +69,8 @@ export type InvoiceIssue = {
   taxPointAt: Date
   financialYear: string
   taxReviewStatus: 'provisional' | 'reviewed'
+  /** Approved rollout scope, supplied only by service checkout. */
+  automaticDelivery?: { branchId: string; cutoff: Date; source: string; recipient: string }
   notes?: string | null
   /**
    * The offer applied at checkout and its rule as it was then (offers.md):
@@ -102,11 +106,12 @@ export type InvoiceIssueLine = {
 
 /**
  * The statements that issue the invoice, in the order they must run inside
- * one batch: the counter, the invoice (with `.returning()`), then its lines
- * (absent when there are none).
+ * one batch: the counter, the invoice (with `.returning()`), its lines
+ * (absent when there are none), then the issue snapshot and pending sync row.
  */
 export function issueInvoiceStatements(issue: InvoiceIssue, lines: readonly InvoiceIssueLine[]) {
   const { branchId, financialYear } = issue
+  const automatic = issue.automaticDelivery
 
   // Upserting the counter row locks it until the transaction ends.
   const counter = db
@@ -172,7 +177,98 @@ export function issueInvoiceStatements(issue: InvoiceIssue, lines: readonly Invo
       ? db.insert(invoiceItem).values(lines.map((line) => ({ ...line, invoiceId: issue.id })))
       : null
 
-  return { counter, insertInvoice, insertLines }
+  // Capture mutable identity and contact fields while issuing the invoice.
+  // Keep the source facts even if a future renderer rejects their size or format.
+  const insertSnapshot = db.execute(sql`
+    INSERT INTO invoice_issue_outbox (invoice_id, snapshot)
+    SELECT i.id, jsonb_build_object(
+      'version', 1,
+      'invoiceId', i.id,
+      'branchId', i.branch_id,
+      'bookingId', i.booking_id,
+      'customerId', i.customer_id,
+      'invoice', jsonb_build_object(
+        'templateVersion', 'takumi-v2',
+        'invoiceNumber', i.invoice_number,
+        'issuedAt', to_char(i.tax_point_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+        'financialYear', i.financial_year,
+        'sequenceNumber', i.sequence_number,
+        'invoiceType', i.invoice_type,
+        'bookingNumber', b.booking_number,
+        'paymentMethod', i.payment_method,
+        ${issue.paymentTenders ? sql`'paymentTenders', ${JSON.stringify(issue.paymentTenders)}::jsonb,` : sql``}
+        'paymentStatus', i.payment_status,
+        'taxReviewStatus', i.tax_review_status,
+        'seller', jsonb_build_object(
+          'name', i.issuer_name,
+          'legalName', i.issuer_legal_name,
+          'gstin', i.issuer_gstin,
+          'addressLines', string_to_array(i.issuer_address, E'\\n'),
+          'state', i.issuer_state,
+          'phone', branch.phone,
+          'email', branch.email
+        ),
+        'customer', jsonb_build_object('name', u.name, 'email', u.email, 'phone', cp.phone),
+        'items', coalesce(lines.items, '[]'::jsonb),
+        'totals', jsonb_build_object(
+          'subtotalPaise', i.subtotal_paise,
+          'discountPaise', i.discount_amount_paise,
+          'taxableValuePaise', i.taxable_value_paise,
+          'cgstPaise', i.cgst_paise,
+          'sgstPaise', i.sgst_paise,
+          'gstPaise', i.gst_amount_paise,
+          'totalPaise', i.total_amount_paise
+        ),
+        'gemsEarned', i.gems_earned,
+        'gemsRedeemed', i.gems_redeemed,
+        'notes', i.notes,
+        'offer', CASE WHEN i.offer_id IS NOT NULL THEN jsonb_build_object(
+          'id', i.offer_id, 'name', i.offer_name_snapshot,
+          'type', i.offer_type_snapshot, 'value', i.offer_value_snapshot
+        ) END
+      )
+    ) ${
+      automatic
+        ? sql`|| CASE
+      WHEN i.branch_id = ${automatic.branchId}
+        AND i.tax_point_at >= ${automatic.cutoff.toISOString()}
+        AND i.invoice_type = 'service'
+        AND i.tax_review_status = 'reviewed'
+        AND i.payment_status = 'paid'
+        AND b.status = 'completed'
+        AND u.email = ${automatic.recipient}
+      THEN jsonb_build_object('automaticDeliverySource', ${automatic.source}::text)
+      ELSE '{}'::jsonb END`
+        : sql``
+    }
+    FROM invoice i JOIN "user" u ON u.id = i.customer_id
+    JOIN branch ON branch.id = i.branch_id
+    LEFT JOIN booking b ON b.id = i.booking_id
+    LEFT JOIN customer_profile cp ON cp.user_id = i.customer_id
+    CROSS JOIN LATERAL (
+      SELECT jsonb_agg(jsonb_build_object(
+        'serviceId', line.service_id,
+        'name', line.service_name_snapshot,
+        'staffName', line.staff_name_snapshot,
+        'quantity', line.quantity,
+        'unitPricePaise', line.unit_price_paise,
+        'totalPricePaise', line.total_price_paise,
+        'sacCode', line.sac_code,
+        'taxVersionId', line.tax_version_id,
+        'rateBps', line.rate_bps,
+        'discountPaise', line.discount_paise,
+        'taxableValuePaise', line.taxable_value_paise,
+        'taxPaise', line.tax_paise,
+        'cgstPaise', line.cgst_paise,
+        'sgstPaise', line.sgst_paise,
+        'gemsCovered', line.service_id IS NOT NULL AND line.service_id IS NOT DISTINCT FROM i.gems_redeemed_service_id
+      ) ORDER BY line.display_order, line.id) AS items
+      FROM invoice_item line WHERE line.invoice_id = i.id
+    ) lines
+    WHERE i.id = ${issue.id}
+  `)
+
+  return { counter, insertInvoice, insertLines, insertSnapshot }
 }
 
 /** The number of an invoice issued earlier in the same batch, for log text. */

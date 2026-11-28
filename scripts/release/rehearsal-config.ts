@@ -3,6 +3,7 @@ const DNS_NAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/
 const CERTIFICATE = /^arn:aws:acm:us-east-1:\d{12}:certificate\/[a-f0-9-]{36}$/
 const NEON_HOST = /^ep-[a-z0-9-]+\.(?:[a-z0-9-]+\.)+neon\.tech$/
 const R2_ENDPOINT = /^[a-f0-9]{32}\.r2\.cloudflarestorage\.com$/
+const INVOICE_STAGING_ORIGIN = 'https://invoice-staging.theroyalglow.in'
 
 type Environment = Readonly<Record<string, string | undefined>>
 
@@ -50,6 +51,18 @@ function isolatedOrigin(env: Environment, name: string): URL {
   return parsed
 }
 
+function invoiceWorkerOrigin(
+  env: Environment,
+  name: 'REHEARSAL_INVOICE_EVENTS_ORIGIN' | 'REHEARSAL_INVOICE_ROSTER_ORIGIN',
+): string | undefined {
+  const value = env[name]?.trim()
+  if (!value) return undefined
+  if (value === INVOICE_STAGING_ORIGIN || value === `${INVOICE_STAGING_ORIGIN}/`) {
+    return INVOICE_STAGING_ORIGIN
+  }
+  return isolatedOrigin(env, name).origin
+}
+
 export function readRehearsalConfig(stage: string, env: Environment) {
   if (stage !== 'rehearsal' && !stage.startsWith('rehearsal-')) return undefined
   if (!REHEARSAL_STAGE.test(stage)) throw new Error('Use a named rehearsal-* SST stage')
@@ -91,6 +104,8 @@ export function readRehearsalConfig(stage: string, env: Environment) {
     admin: { hostname: adminHost, origin: `https://${adminHost}`, cert },
     cmsOrigin: isolatedOrigin(env, 'REHEARSAL_CMS_ORIGIN').origin,
     invoicingOrigin: isolatedOrigin(env, 'REHEARSAL_INVOICING_ORIGIN').origin,
+    invoiceRosterOrigin: invoiceWorkerOrigin(env, 'REHEARSAL_INVOICE_ROSTER_ORIGIN'),
+    invoiceEventsOrigin: invoiceWorkerOrigin(env, 'REHEARSAL_INVOICE_EVENTS_ORIGIN'),
     r2Endpoint: r2Endpoint.origin,
     r2Bucket,
     r2PublicOrigin: isolatedOrigin(env, 'REHEARSAL_R2_PUBLIC_ORIGIN').origin,
